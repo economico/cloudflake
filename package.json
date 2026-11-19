@@ -1,6 +1,6 @@
 {
   "name": "cloudflake",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Seeded simulation testing for Cloudflare Workers and Durable Objects",
   "type": "module",
   "license": "Apache-2.0",
