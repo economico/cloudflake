@@ -4,6 +4,18 @@
   "description": "Seeded simulation testing for Cloudflare Workers and Durable Objects",
   "type": "module",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/economico/cloudflake.git"
+  },
+  "homepage": "https://github.com/economico/cloudflake#readme",
+  "keywords": [
+    "cloudflare",
+    "workers",
+    "durable-objects",
+    "simulation-testing",
+    "deterministic"
+  ],
   "engines": {
     "node": ">=24"
   },
