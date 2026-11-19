@@ -4,7 +4,7 @@ Cloudflake explores failures in Cloudflare applications by varying request order
 
 The TypeScript scheduler runs in process with zero runtime dependencies. The optional Miniflare adapter runs your bundled Workers and their bindings locally in workerd. Use the same scheduling API for fast model tests and application tests.
 
-We use Cloudflake at Economico to test our Workers and Durable Objects.
+We use Cloudflake at [Economico](https://economi.co/?utm_source=github&utm_medium=readme&utm_campaign=cloudflake) to test our Workers and Durable Objects.
 
 ## Try it
 
@@ -99,6 +99,12 @@ Cloudflake controls its own time, random draws, scheduled events, explicit fault
 Run `npm run build && npm run bench` for the scheduler benchmark. It warms up, then reports five trials of one million events each with 256 pending events and bounded tracing. On the development Linux arm64 machine with Node 26.12, the median was about 4.9 million events per second. This benchmark measures the scheduler in isolation.
 
 The event calendar is a binary heap. The scheduler invokes synchronous operations directly, keeps a bounded failure trace, and runs alongside JavaScript scenario code. TypeScript avoids a native boundary per scheduling decision. Runtime startup, storage and RPC dominate the measured end-to-end workload. There is no Rust comparison benchmark. Hegel can generate scenario inputs or seeds independently. Cloudflake owns schedule selection and replay and requires no separate property-testing engine.
+
+## Built by Economico
+
+[![Economico: the business context layer for founders and their agents](https://raw.githubusercontent.com/economico/cloudflake/main/assets/economico.gif)](https://economi.co/?utm_source=github&utm_medium=readme&utm_campaign=cloudflake)
+
+Cloudflake comes out of [Economico](https://economi.co/?utm_source=github&utm_medium=readme&utm_campaign=cloudflake), the business context layer for founders and their agents. Your customers, agreements, activity and money live in one structured record your own agents operate, with real books and evidence behind every answer.
 
 ## License
 
