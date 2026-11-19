@@ -1,4 +1,4 @@
-# Cloudflake
+# ![Cloudflake — deterministic simulation testing for Workers and Durable Objects](assets/banner.png)
 
 Cloudflake explores failures in Cloudflare applications by varying request order, delivery, retries and eviction. Give it a scenario, a property that must hold, and a seed. A failure reports the seed, virtual time, failing operation, recent event history and original error.
 
