@@ -33,7 +33,8 @@
     "dist",
     "README.md",
     "LICENSE",
-    "examples"
+    "examples",
+    "skills"
   ],
   "scripts": {
     "build": "tsc",

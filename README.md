@@ -8,7 +8,7 @@ We use Cloudflake at [Economico](https://economi.co/?utm_source=github&utm_mediu
 
 ## Try it
 
-Use Node.js 24 or newer. From this checkout run `npm ci && npm test`. To use the library in another project, run `npm pack` here and install the resulting tarball as a dev dependency there. Install a compatible Miniflare 4 alongside it for the Workers adapter.
+Use Node.js 24 or newer. Install with `npm install -D cloudflake`, and add a compatible Miniflare 4 for the Workers adapter. To work on Cloudflake itself, run `npm ci && npm test` from this checkout.
 
 The following scenario tests a consumer that could receive a payment more than once. It explores a thousand schedules, checking the balance after every event.
 
@@ -37,6 +37,24 @@ await simulate({ seed: 42, onStep: console.log }, payments)
 ```
 
 Remove the `posted.has(id)` guard to see a duplicate delivery violate the invariant. For replay, use the failure's seed with the same code, inputs, dependency versions and options.
+
+## Use it with your coding agent
+
+Cloudflake ships an [agent skill](skills/cloudflake/SKILL.md) that teaches coding agents such as Claude Code, Codex and Cursor how to write simulation tests with it: the workflow, the API, the rules that keep replay exact, recipes for common Cloudflare failures, and further reading on deterministic simulation and property-based testing.
+
+Install it into your project with the [skills](https://skills.sh) CLI:
+
+```sh
+npx skills add economico/cloudflake
+```
+
+If Cloudflake is already a dev dependency, the skill is in the package at `node_modules/cloudflake/skills/cloudflake/SKILL.md`. `npx skills experimental_sync` links skills from installed packages into your agent's skills directory, so the skill stays in step with the installed version.
+
+Without installing anything, tell your agent:
+
+> Read `node_modules/cloudflake/skills/cloudflake/SKILL.md` (or https://github.com/economico/cloudflake/blob/main/skills/cloudflake/SKILL.md) and follow it. Write Cloudflake simulation tests for our queue consumer and Durable Objects. Check that duplicate delivery, retries and eviction cannot double-count, run a campaign of at least 500 seeds, and report any failing seed with its replay command.
+
+Good prompts name the property that must hold ("each payment posts exactly once"), the components involved, and how many seeds to explore. Ask the agent to break the guard deliberately and confirm the test fails, so you know the test can catch the bug.
 
 ## Property-based testing with Hegel
 
