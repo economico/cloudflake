@@ -1,0 +1,48 @@
+{
+  "name": "cloudflake",
+  "version": "0.1.0",
+  "description": "Seeded simulation testing for Cloudflare Workers and Durable Objects",
+  "type": "module",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./miniflare": {
+      "types": "./dist/miniflare.d.ts",
+      "import": "./dist/miniflare.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "examples"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "npm run build && node --test test/*.test.mjs",
+    "bench": "node bench/scheduler.mjs",
+    "prepack": "npm run build",
+    "test:hegel": "npm run build && node --test examples/hegel.test.mjs"
+  },
+  "peerDependencies": {
+    "miniflare": "^4.20260730.0"
+  },
+  "peerDependenciesMeta": {
+    "miniflare": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260702.1",
+    "@hegeldev/hegel": "^0.5.9",
+    "@types/node": "^24",
+    "miniflare": "^4",
+    "typescript": "^5.9.3"
+  }
+}
