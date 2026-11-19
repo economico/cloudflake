@@ -94,17 +94,54 @@ For a complete runnable example, run `node examples/counter.mjs` from this check
 
 ### Control points
 
+#### Core DST engine (`cloudflake`)
+
 | API | Behavior |
 | --- | --- |
 | `sim.after(ms, label, action)` | Schedules a turn in virtual milliseconds and returns a cancel function. Time advances directly to the next live event. Equal-time events have seeded priorities. |
-| `sim.int(limit)` | Generates a uniform integer from zero through `limit - 1`. Workload generation, scheduling priorities and delivery faults have separate PRNG streams. |
-| `sim.deliver(label, action, policy)` | Adds seeded latency, omission or one extra delivery. `maxDelay` is in milliseconds. `drop` and `duplicate` range from zero to one. Recreate consumable request bodies inside the callback. |
-| `sim.invariant(name, check)` | Checks a property after setup and each completed event. Use a final scheduled assertion for eventual convergence. |
-| `client(sim, name, async checkpoint => …)` | Runs a sequential client until completion or its next awaited `checkpoint(delayMs, label)`. Other clients can run while it is parked. A test service binding can await this same checkpoint inside a live Worker request. |
-| `simulatedQueue(sim, name, consumer, options)` | Provides `send` and `sendBatch`, stable delivery IDs, payload copies, duplicates, retry delays and bounded retries. Each delivery is a one-message batch. Exhausted retries fail the run unless an `onExhausted` handler is supplied. |
-| `workerQueue(sim, runtime, workerName, queueName, options)` | Calls the actual Worker's queue handler with virtual timestamps and honors its retry response. Use the returned producer to inject deliveries. A native producer binding uses Miniflare's own broker. |
-| `simulatedAlarm(sim, objectName, fire)` | Provides one replaceable alarm slot to dependency-injected code. Setting an earlier time wakes on the next scheduler turn. Exceptions fail the scenario. |
-| `maxSteps`, `traceLimit`, `onStep` | Bound event count and retained failure history, or stream every step. Defaults are 100,000 events and 32 retained steps. |
+| `sim.onIdle(label, action)` | Runs once the event calendar drains to quiescence. Eliminates hardcoded settlement timestamps like `sim.after(60001, ...)`. |
+| `sim.heal()` / `healAt` | Transitions from chaos to quiescence: drops, ambiguous failures, resets and evictions pause so retries drain cleanly before convergence checks. |
+| `sim.rng` / `sim.rngStream(name)` / `sim.int(limit)` | 128-bit `xoshiro128++` PRNG with isolated named sub-streams and combinators (`range`, `chance`, `pick`, `shuffle`, `weighted`, `bytes`, `uuid`, `delay`). |
+| `sim.profile` / `swarm` | TigerBeetle VOPR-style swarm testing: each seed draws a randomized fault regime and latency distribution (`uniform`, `exponential`, `pareto`, `bimodal`). |
+| `sim.deliver(label, action, policy)` | Adds seeded latency, zero-step drops, `1..maxDuplicates` extra deliveries, and **ambiguous (gray) failures** (callee executes, then caller sees an error). |
+| `sim.invariant(name, check)` | Checks a property after setup and each completed event. |
+| `sim.always` / `alwaysOrUnreachable` / `sometimes` / `reachable` / `unreachable` | Antithesis-style assertion taxonomy. `sometimes` and expected `reachable`/`always` properties are aggregated across `campaign()` and fail with `PropertyCoverageFailure` if never satisfied. |
+| `HistoryRecorder` & `checkLinearizability` | Wing-Gong linearizability checker supporting definite `ok`/`fail` and `indeterminate` (ambiguous) outcomes against a pure reference model. |
+| `client` & `createCheckpointHub` | Sequential cooperative clients that pause at `checkpoint` or `sim.waitFor(...)` (with automatic deadlock detection and `x-cloudflake-client` header correlation). |
+| `minimizeFaults(options, scenario)` | Delta-debugs a failing seed to find the minimal subset of injected faults that still reproduces the bug. |
+| `exploreMultiverse(options)` | Antithesis-style coverage-guided snapshot & branching explorer (`sim.cover()`, assertions, faults, and optional in-process V8 branch coverage). |
+| `probe(options, scenario)` | Local exploratory prober (auto-skips in CI unless `CLOUDFLAKE_PROBE=1`). Runs time-budgeted exploration, buckets failures, minimizes faults, and prints actionable guidance for coding agents. |
+| `simulatedQueue`, `simulatedAlarm`, `simulatedKV`, `simulatedDurableObject`, `simulatedWaitUntil`, `simulatedFetch` | Fast in-process simulators for multi-message Queue batches + DLQ, DO alarm retries/duplicates, eventually consistent KV stale reads/TTLs, DO eviction/`abort`/`blockConcurrencyWhile`/ambiguous resets, `waitUntil` drops, and outbound `fetch` faults. |
+
+#### Workers & Durable Objects adapter (`cloudflake/miniflare`)
+
+| API | Behavior |
+| --- | --- |
+| `simulateWorkers` & `campaignWorkers` | Run single-seed or parallel multi-seed (`concurrency`) `workerd` campaigns with aggregated Antithesis property reports and failure bucketing. |
+| `workerQueue` | Drives a Worker's real `queue()` handler on virtual time with multi-message batching and partial batch ack/retry. |
+| `createBindingProxies(sim, config)` | Drop-in `WorkerEntrypoint`/`RpcTarget` proxies so real Workers calling `env.MY_QUEUE.send()`, `env.MY_KV.get/put()`, and `env.MY_DO.getByName().fetch()` (plus JS RPC methods listed in `durableObjects[binding].rpcMethods`) get virtual-time queues, KV stale reads, and DO RPC reset/ambiguous faults with zero app code changes. |
+| `controlServiceBinding` & `createVirtualRuntimeModule` | Synchronizes `Date.now()`, `Math.random()`, `crypto.randomUUID()`, `ctx.waitUntil(() => task())` drops (factories only; a passed Promise is already running), real DO `ctx.storage` alarms, and Antithesis assertions inside `workerd` onto Cloudflake's virtual calendar. |
+| `outboundFaultService` | Drop-in Miniflare `outboundService` injecting `CheckpointHub` pauses, 429/5xx, timeouts, and ambiguous writes across outbound `fetch()`. |
+| `doNemesis` | Automated seeded `unsafeEvictDurableObject` chaos actor with `sometimes('do evicted')` coverage tracking. |
+| `snapshotPersistDir` | Clones Miniflare SQLite/KV/R2/DO persistence directories for midpoint multiverse branching in `workerd`. |
+| `probeWorkers` | Local exploratory `workerd` prober (auto-skips in CI by default) with fault minimization and agent-ready failure guidance. |
+
+### Local exploratory probing (TigerBeetle / Antithesis style)
+
+Unit tests and small seeded campaigns belong in CI. Longer exploratory probes that search thousands of seeds with randomized swarm fault profiles should run locally (or on demand by your coding agent):
+
+```js
+import { probe } from 'cloudflake'
+
+await probe({
+  name: 'payments-exploration',
+  durationMs: 15_000,
+  healAt: 500,
+  replayCommand: 'CLOUDFLAKE_SEED={seed} CLOUDFLAKE_PROBE=1 node test/probe.mjs'
+}, paymentsScenario)
+```
+
+`probe()` and `probeWorkers()` skip automatically when `CI` is set unless `CLOUDFLAKE_PROBE=1` is passed. Override duration or replay a specific failure with `CLOUDFLAKE_PROBE_MS`, `CLOUDFLAKE_PROBE_RUNS`, or `CLOUDFLAKE_SEED`. When a bug is found, Cloudflake delta-debugs the injected faults and prints the replay command, minimal fault trigger, causal trace, and diagnostic hints.
 
 Normal actions run to completion. To explore an in-flight race, put a checkpoint at an I/O boundary and await it on one sequential chain per client. The Workers integration test demonstrates two live requests pausing after a KV read, losing an increment, and reproducing the failure. Native calls can use Miniflare's service bindings, namespaces, SQL, R2, KV, D1, queue handlers, cron entry points and object eviction. Configure service-specific behavior in the deployment factory.
 
