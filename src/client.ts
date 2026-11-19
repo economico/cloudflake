@@ -6,13 +6,21 @@ export type CheckpointHub = {
   /** Spawn a named sequential client and automatically register its checkpoint gate. */
   spawn(
     name: string,
-    task: (ctx: { id: string; headers: Record<string, string>; checkpoint: Checkpoint }) => Promise<void>
+    task: (ctx: {
+      id: string
+      headers: Record<string, string>
+      checkpoint: Checkpoint
+    }) => Promise<void>,
   ): string
   /**
    * Pause the client identified by `clientId` (or extracted from a Request's
    * `x-cloudflake-client` header). If no client is active for that id, this is a no-op.
    */
-  pause(clientIdOrRequest: string | { headers: { get(name: string): string | null } }, delay: number, label: string): Promise<void>
+  pause(
+    clientIdOrRequest: string | { headers: { get(name: string): string | null } },
+    delay: number,
+    label: string,
+  ): Promise<void>
   /** Header name used to propagate client correlation across Worker fetches. */
   readonly headerName: string
 }
@@ -27,7 +35,7 @@ export const CLIENT_HEADER = 'x-cloudflake-client'
 export function client(
   sim: Simulation,
   name: string,
-  task: (checkpoint: Checkpoint) => Promise<void>
+  task: (checkpoint: Checkpoint) => Promise<void>,
 ) {
   let active: ReturnType<typeof Promise.withResolvers<void>> | undefined
   let exited = false
@@ -63,7 +71,7 @@ export function client(
           signal.removeEventListener('abort', abort)
           return segment(next.resolve)
         },
-        { kind: 'checkpoint', actor: name }
+        { kind: 'checkpoint', actor: name },
       )
     })
     sim._setActiveClientPark(undefined)
@@ -84,7 +92,7 @@ export function client(
         signal.removeEventListener('abort', abort)
         return segment(next.resolve)
       },
-      { kind: 'checkpoint', actor: name }
+      { kind: 'checkpoint', actor: name },
     )
     signal.addEventListener('abort', abort, { once: true })
     sim._setActiveClientPark(undefined)
@@ -106,14 +114,14 @@ export function client(
               sim._setActiveClientPark(undefined)
               active?.resolve()
             },
-            error => {
+            (error) => {
               exitOnce()
               sim._setActiveClientPark(undefined)
               active?.reject(error)
-            }
+            },
           )
       }),
-    { kind: 'client', actor: name }
+    { kind: 'client', actor: name },
   )
 }
 
@@ -129,13 +137,13 @@ export function createCheckpointHub(sim: Simulation): CheckpointHub {
     headerName: CLIENT_HEADER,
     spawn(name, task) {
       const id = `${name}-${seq++}`
-      client(sim, name, async checkpoint => {
+      client(sim, name, async (checkpoint) => {
         gates.set(id, checkpoint)
         try {
           await task({
             id,
             headers: { [CLIENT_HEADER]: id },
-            checkpoint
+            checkpoint,
           })
         } finally {
           gates.delete(id)
@@ -152,6 +160,6 @@ export function createCheckpointHub(sim: Simulation): CheckpointHub {
       const gate = gates.get(id)
       if (!gate) return
       await gate(delay, label)
-    }
+    },
   }
 }

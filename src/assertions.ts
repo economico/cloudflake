@@ -40,9 +40,9 @@ export type CampaignReport = {
 export class PropertyCoverageFailure extends Error {
   constructor(
     readonly unmetProperties: readonly Readonly<AssertionRecord>[],
-    readonly report: CampaignReport
+    readonly report: CampaignReport,
   ) {
-    const names = unmetProperties.map(p => `${p.kind}("${p.name}")`).join(', ')
+    const names = unmetProperties.map((p) => `${p.kind}("${p.name}")`).join(', ')
     super(`campaign property coverage failed: unmet ${names}`)
     this.name = 'PropertyCoverageFailure'
   }
@@ -76,7 +76,7 @@ export class AssertionTracker {
     kind: AssertionKind,
     name: string,
     condition: boolean,
-    details?: Record<string, unknown>
+    details?: Record<string, unknown>,
   ): boolean {
     const rec = this.ensure(name, kind)
     rec.hits++
@@ -126,9 +126,9 @@ export class AssertionTracker {
       if (rec.failed > 0) edges.add(`${rec.kind}:${rec.name}:false`)
     }
     return {
-      assertions: Array.from(this.records.values(), r => ({ ...r })),
+      assertions: Array.from(this.records.values(), (r) => ({ ...r })),
       faults: faultsObj,
-      coverageEdges: Array.from(edges).sort()
+      coverageEdges: Array.from(edges).sort(),
     }
   }
 }
@@ -182,7 +182,7 @@ export class CampaignCollector {
       const updated: FailureBucket = {
         ...existing,
         count: existing.count + 1,
-        seeds: existing.seeds.length < 16 ? [...existing.seeds, seed] : existing.seeds
+        seeds: existing.seeds.length < 16 ? [...existing.seeds, seed] : existing.seeds,
       }
       this.buckets.set(key, updated)
     }
@@ -190,7 +190,7 @@ export class CampaignCollector {
 
   finalize(durationMs: number): CampaignReport {
     const assertions = Array.from(this.records.values())
-    const unmetProperties = assertions.filter(rec => {
+    const unmetProperties = assertions.filter((rec) => {
       if (rec.kind === 'sometimes') return rec.passed === 0
       if (rec.kind === 'reachable') return rec.hits === 0
       if (rec.kind === 'always') return rec.hits === 0 || rec.failed > 0
@@ -199,12 +199,12 @@ export class CampaignCollector {
     })
     const faults: Record<string, number> = {}
     for (const [k, v] of this.faults) faults[k] = v
-    const failures = Array.from(this.buckets.values(), b => {
+    const failures = Array.from(this.buckets.values(), (b) => {
       const sorted = [...b.seeds].sort((x, y) => x - y)
       return {
         ...b,
         firstSeed: sorted[0] ?? b.firstSeed,
-        seeds: sorted
+        seeds: sorted,
       }
     })
     return {
@@ -215,21 +215,22 @@ export class CampaignCollector {
       faults,
       coverageEdges: Array.from(this.coverage).sort(),
       unmetProperties,
-      failures
+      failures,
     }
   }
 }
 
 export function formatCampaignReport(report: CampaignReport): string {
   const lines: string[] = []
-  const rate = report.durationMs > 0 ? Math.round((report.runs * 1000) / report.durationMs) : report.runs
+  const rate =
+    report.durationMs > 0 ? Math.round((report.runs * 1000) / report.durationMs) : report.runs
   lines.push(
-    `Campaign: ${report.runs} runs, ${report.steps} steps in ${report.durationMs.toFixed(1)}ms (${rate} runs/s)`
+    `Campaign: ${report.runs} runs, ${report.steps} steps in ${report.durationMs.toFixed(1)}ms (${rate} runs/s)`,
   )
   if (report.assertions.length > 0) {
     lines.push('Assertions:')
     for (const a of report.assertions) {
-      const unmet = report.unmetProperties.some(u => u.name === a.name)
+      const unmet = report.unmetProperties.some((u) => u.name === a.name)
       const status = unmet ? 'FAIL' : 'PASS'
       const extra =
         a.kind === 'sometimes'

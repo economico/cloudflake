@@ -24,27 +24,39 @@ export default {
   }
 }`
 
-const result = await simulateWorkers({ seed: Number(process.argv[2] ?? 1) }, () => ({
-  name: 'counter', modules: true, script, compatibilityDate: '2026-07-01',
-  unsafeInspectDurableObjects: true,
-  durableObjects: { COUNTERS: { className: 'Counter', useSQLite: true } }
-}), async (sim, runtime) => {
-  const url = 'https://counter.test/'
-  const read = async () => {
-    const response = await runtime.dispatchFetch(url)
-    assert.equal(response.status, 200)
-    return response.json()
-  }
-  assert.equal(await read(), 0)
-  for (const id of ['a', 'b', 'c']) {
-    sim.deliver('increment ' + id, async () => {
-      const response = await runtime.dispatchFetch(url, { method: 'POST', body: id })
+const result = await simulateWorkers(
+  { seed: Number(process.argv[2] ?? 1) },
+  () => ({
+    name: 'counter',
+    modules: true,
+    script,
+    compatibilityDate: '2026-07-01',
+    unsafeInspectDurableObjects: true,
+    durableObjects: { COUNTERS: { className: 'Counter', useSQLite: true } },
+  }),
+  async (sim, runtime) => {
+    const url = 'https://counter.test/'
+    const read = async () => {
+      const response = await runtime.dispatchFetch(url)
       assert.equal(response.status, 200)
-      await response.json()
-    }, { maxDelay: 5, duplicate: 1 })
-  }
-  sim.after(sim.int(6), 'evict counter', () =>
-    runtime.unsafeEvictDurableObject('counter', 'Counter', { name: 'shared' }))
-  sim.after(6, 'each increment counted once', async () => assert.equal(await read(), 3))
-})
+      return response.json()
+    }
+    assert.equal(await read(), 0)
+    for (const id of ['a', 'b', 'c']) {
+      sim.deliver(
+        'increment ' + id,
+        async () => {
+          const response = await runtime.dispatchFetch(url, { method: 'POST', body: id })
+          assert.equal(response.status, 200)
+          await response.json()
+        },
+        { maxDelay: 5, duplicate: 1 },
+      )
+    }
+    sim.after(sim.int(6), 'evict counter', () =>
+      runtime.unsafeEvictDurableObject('counter', 'Counter', { name: 'shared' }),
+    )
+    sim.after(6, 'each increment counted once', async () => assert.equal(await read(), 3))
+  },
+)
 console.log(result)

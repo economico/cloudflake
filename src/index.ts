@@ -2,11 +2,8 @@ import {
   AssertionTracker,
   CampaignCollector,
   PropertyCoverageFailure,
-  formatCampaignReport,
-  type AssertionKind,
   type AssertionRecord,
   type CampaignReport,
-  type FailureBucket
 } from './assertions.js'
 import { Prng, type DelayDistribution } from './prng.js'
 import { generateFaultProfile, type FaultProfile, type SwarmBounds } from './swarm.js'
@@ -95,14 +92,15 @@ function integer(value: number, min: number, max = Number.MAX_SAFE_INTEGER) {
 function before(a: Event, b: Event) {
   return (
     a.time < b.time ||
-    (a.time === b.time &&
-      (a.priority < b.priority || (a.priority === b.priority && a.id < b.id)))
+    (a.time === b.time && (a.priority < b.priority || (a.priority === b.priority && a.id < b.id)))
   )
 }
 
 class Calendar {
   private heap: Event[] = []
-  get size() { return this.heap.length }
+  get size() {
+    return this.heap.length
+  }
   push(event: Event) {
     const h = this.heap
     let i = h.length
@@ -141,11 +139,11 @@ export class SimulationFailure extends Error {
     readonly phase: string,
     readonly trace: readonly Step[],
     cause: unknown,
-    readonly firedFaults: readonly FaultEvent[] = []
+    readonly firedFaults: readonly FaultEvent[] = [],
   ) {
     super(
       `seed ${seed}, step ${steps}, t=${time}, ${phase}: ${cause instanceof Error ? cause.message : String(cause)}`,
-      { cause }
+      { cause },
     )
     this.name = 'SimulationFailure'
   }
@@ -153,7 +151,7 @@ export class SimulationFailure extends Error {
 
 export function formatTrace(trace: readonly Step[]): string {
   return trace
-    .map(step => {
+    .map((step) => {
       const kind = step.kind ? `[${step.kind}]`.padEnd(12) : ''
       const actor = step.actor ? `(${step.actor}) ` : ''
       const cause = step.causedBy !== undefined ? ` <- #${step.causedBy}` : ''
@@ -195,7 +193,10 @@ export class Simulation {
   private chaos = true
   private healAt?: number
   private pendingClients = 0
-  private activeClientPark?: (registerWake: (wake: () => void) => void, label: string) => Promise<void>
+  private activeClientPark?: (
+    registerWake: (wake: () => void) => void,
+    label: string,
+  ) => Promise<void>
 
   constructor(options: Options) {
     this.seed = integer(options.seed, 0, Number.MAX_SAFE_INTEGER)
@@ -214,11 +215,21 @@ export class Simulation {
   }
 
   /** Aborts parked client checkpoints when a run fails. */
-  get signal() { return (this.controller ??= new AbortController()).signal }
-  get now() { return this.time }
-  get steps() { return this.count }
-  get chaosEnabled() { return this.chaos }
-  get currentId() { return this.currentEventId }
+  get signal() {
+    return (this.controller ??= new AbortController()).signal
+  }
+  get now() {
+    return this.time
+  }
+  get steps() {
+    return this.count
+  }
+  get chaosEnabled() {
+    return this.chaos
+  }
+  get currentId() {
+    return this.currentEventId
+  }
 
   /** Derive or retrieve a named deterministic PRNG stream isolated from other streams. */
   rngStream(name: string): Prng {
@@ -258,7 +269,7 @@ export class Simulation {
     probability: number,
     label = kind,
     rng: Prng = this.networkRng,
-    options: { respectHeal?: boolean } = {}
+    options: { respectHeal?: boolean } = {},
   ): boolean {
     if (!(probability >= 0 && probability <= 1)) {
       throw new RangeError('probability outside [0,1]')
@@ -292,9 +303,7 @@ export class Simulation {
   always(name: string, condition: boolean, details?: Record<string, unknown>) {
     if (!this.assertions.record('always', name, condition, details)) {
       this.phase = 'always ' + name
-      throw new Error(
-        `always("${name}") violated${details ? `: ${JSON.stringify(details)}` : ''}`
-      )
+      throw new Error(`always("${name}") violated${details ? `: ${JSON.stringify(details)}` : ''}`)
     }
   }
 
@@ -303,7 +312,7 @@ export class Simulation {
     if (!this.assertions.record('alwaysOrUnreachable', name, condition, details)) {
       this.phase = 'alwaysOrUnreachable ' + name
       throw new Error(
-        `alwaysOrUnreachable("${name}") violated${details ? `: ${JSON.stringify(details)}` : ''}`
+        `alwaysOrUnreachable("${name}") violated${details ? `: ${JSON.stringify(details)}` : ''}`,
       )
     }
   }
@@ -326,7 +335,7 @@ export class Simulation {
     this.assertions.record('unreachable', name, false, details)
     this.phase = 'unreachable ' + name
     throw new Error(
-      `unreachable("${name}") was reached${details ? `: ${JSON.stringify(details)}` : ''}`
+      `unreachable("${name}") was reached${details ? `: ${JSON.stringify(details)}` : ''}`,
     )
   }
 
@@ -351,12 +360,7 @@ export class Simulation {
   }
 
   /** Schedule a turn in virtual milliseconds and return a cancel function. */
-  after(
-    delay: number,
-    label: string,
-    action: Action,
-    meta?: { kind?: string; actor?: string }
-  ) {
+  after(delay: number, label: string, action: Action, meta?: { kind?: string; actor?: string }) {
     const time = integer(this.time + integer(delay, 0), this.time)
     const event: Event = {
       time,
@@ -366,10 +370,12 @@ export class Simulation {
       action,
       causedBy: this.currentEventId,
       kind: meta?.kind,
-      actor: meta?.actor
+      actor: meta?.actor,
     }
     this.calendar.push(event)
-    return () => { event.action = undefined }
+    return () => {
+      event.action = undefined
+    }
   }
 
   /**
@@ -397,28 +403,39 @@ export class Simulation {
       return Math.floor(this.networkRng.float() * (delay + 1))
     }
 
-    const wrapAction = (deliveryLabel: string): Action => async () => {
-      const res = action()
-      if (res) await res
-      if (ambiguous > 0 && this.decideFault('ambiguous', ambiguous, deliveryLabel, this.networkRng)) {
-        const err = new AmbiguousFailureError(deliveryLabel)
-        this.recordTrace(deliveryLabel + ' [ambiguous]', 'ambiguous', policy.actor)
-        if (policy.onAmbiguous) {
-          await policy.onAmbiguous(err)
-        } else {
-          throw err
+    const wrapAction =
+      (deliveryLabel: string): Action =>
+      async () => {
+        const res = action()
+        if (res) await res
+        if (
+          ambiguous > 0 &&
+          this.decideFault('ambiguous', ambiguous, deliveryLabel, this.networkRng)
+        ) {
+          const err = new AmbiguousFailureError(deliveryLabel)
+          this.recordTrace(deliveryLabel + ' [ambiguous]', 'ambiguous', policy.actor)
+          if (policy.onAmbiguous) {
+            await policy.onAmbiguous(err)
+          } else {
+            throw err
+          }
         }
       }
-    }
 
     const meta = { kind: 'deliver', actor: policy.actor }
     this.after(sampleLatency(), label, wrapAction(label), meta)
 
     let dupCount = 0
-    while (dupCount < maxDuplicates && this.decideFault('duplicate', duplicate, label, this.networkRng)) {
+    while (
+      dupCount < maxDuplicates &&
+      this.decideFault('duplicate', duplicate, label, this.networkRng)
+    ) {
       dupCount++
       const dupLabel = dupCount === 1 ? label + ' [duplicate]' : `${label} [duplicate #${dupCount}]`
-      this.after(sampleLatency(), dupLabel, wrapAction(dupLabel), { kind: 'duplicate', actor: policy.actor })
+      this.after(sampleLatency(), dupLabel, wrapAction(dupLabel), {
+        kind: 'duplicate',
+        actor: policy.actor,
+      })
     }
   }
 
@@ -436,11 +453,17 @@ export class Simulation {
   }
 
   /** @internal Track cooperative clients for deadlock detection. */
-  _enterClient() { this.pendingClients++ }
+  _enterClient() {
+    this.pendingClients++
+  }
   /** @internal Track cooperative clients for deadlock detection. */
-  _exitClient() { this.pendingClients-- }
+  _exitClient() {
+    this.pendingClients--
+  }
   /** @internal Register the active client's park callback for cooperative locks/gates. */
-  _setActiveClientPark(park?: (registerWake: (wake: () => void) => void, label: string) => Promise<void>) {
+  _setActiveClientPark(
+    park?: (registerWake: (wake: () => void) => void, label: string) => Promise<void>,
+  ) {
     this.activeClientPark = park
   }
   /**
@@ -471,7 +494,11 @@ export class Simulation {
           idleTurns = 0
         } else if (++idleTurns >= 3) {
           this.phase = 'deadlock detection'
-          reject(new Error(`deadlock: "${label}" was never woken outside a client() and the calendar cannot advance`))
+          reject(
+            new Error(
+              `deadlock: "${label}" was never woken outside a client() and the calendar cannot advance`,
+            ),
+          )
           return
         }
         setImmediate(watch)
@@ -494,7 +521,9 @@ export class Simulation {
   }
 
   /** @internal Access tracker for campaign aggregation. */
-  _tracker() { return this.assertions }
+  _tracker() {
+    return this.assertions
+  }
 
   private recordTrace(label: string, kind?: string, actor?: string) {
     if (!this.capacity && !this.observer) return
@@ -507,8 +536,8 @@ export class Simulation {
             label,
             ...(this.currentEventId !== undefined ? { causedBy: this.currentEventId } : {}),
             ...(kind ? { kind } : {}),
-            ...(actor ? { actor } : {})
-          }
+            ...(actor ? { actor } : {}),
+          },
     )
     if (this.capacity) this.recent[this.traced++ % this.capacity] = step
     this.observer?.(step)
@@ -542,13 +571,24 @@ export class Simulation {
           this.currentEventId = event.id
           if (this.capacity || this.observer) {
             let step: Step
-            if (event.causedBy === undefined && event.kind === undefined && event.actor === undefined) {
+            if (
+              event.causedBy === undefined &&
+              event.kind === undefined &&
+              event.actor === undefined
+            ) {
               step = Object.freeze({ id: event.id, time: event.time, label: event.label })
             } else {
-              const s: { id: number; time: number; label: string; causedBy?: number; kind?: string; actor?: string } = {
+              const s: {
+                id: number
+                time: number
+                label: string
+                causedBy?: number
+                kind?: string
+                actor?: string
+              } = {
                 id: event.id,
                 time: event.time,
-                label: event.label
+                label: event.label,
               }
               if (event.causedBy !== undefined) s.causedBy = event.causedBy
               if (event.kind !== undefined) s.kind = event.kind
@@ -580,7 +620,9 @@ export class Simulation {
 
       if (this.pendingClients > 0) {
         this.phase = 'deadlock detection'
-        throw new Error(`${this.pendingClients} client(s) remained unfinished after calendar drained`)
+        throw new Error(
+          `${this.pendingClients} client(s) remained unfinished after calendar drained`,
+        )
       }
 
       this.throwDeferred()
@@ -592,7 +634,7 @@ export class Simulation {
         time: this.now,
         assertions: snap.assertions,
         faults: snap.faults,
-        firedFaults: this.firedFaultEvents
+        firedFaults: this.firedFaultEvents,
       }
     } catch (cause) {
       this.finished = true
@@ -606,7 +648,7 @@ export class Simulation {
         this.phase,
         trace,
         cause,
-        this.firedFaultEvents
+        this.firedFaultEvents,
       )
     }
   }
@@ -650,7 +692,8 @@ export async function campaign(options: CampaignOptions, setup: Scenario): Promi
   if (options.runs === undefined && options.durationMs === undefined) {
     throw new RangeError('campaign requires either runs or durationMs')
   }
-  const maxRuns = options.runs === undefined ? Number.MAX_SAFE_INTEGER : integer(options.runs, 1, 0x100000000)
+  const maxRuns =
+    options.runs === undefined ? Number.MAX_SAFE_INTEGER : integer(options.runs, 1, 0x100000000)
   const durationMs = options.durationMs === undefined ? Infinity : integer(options.durationMs, 1)
   integer(options.seed, 0, Number.MAX_SAFE_INTEGER)
 
@@ -692,7 +735,7 @@ export async function campaign(options: CampaignOptions, setup: Scenario): Promi
  */
 export async function minimizeFaults(
   options: Options,
-  setup: Scenario
+  setup: Scenario,
 ): Promise<{
   seed: number
   originalFaults: readonly FaultEvent[]
@@ -716,11 +759,11 @@ export async function minimizeFaults(
       seed: options.seed,
       originalFaults: original,
       minimalFaults: original,
-      failure: initialFailure
+      failure: initialFailure,
     }
   }
 
-  let active = original.map(f => f.index)
+  let active = original.map((f) => f.index)
   let latestFailure = initialFailure
   const allIndices = new Set(active)
 
@@ -767,8 +810,8 @@ export async function minimizeFaults(
   return {
     seed: options.seed,
     originalFaults: original,
-    minimalFaults: original.filter(f => keptSet.has(f.index)),
-    failure: latestFailure
+    minimalFaults: original.filter((f) => keptSet.has(f.index)),
+    failure: latestFailure,
   }
 }
 
@@ -787,7 +830,7 @@ export {
   type AssertionKind,
   type AssertionRecord,
   type CampaignReport,
-  type FailureBucket
+  type FailureBucket,
 } from './assertions.js'
 export { generateFaultProfile, type FaultProfile, type SwarmBounds } from './swarm.js'
 export {
@@ -796,7 +839,7 @@ export {
   type HistoryEntry,
   type LinearModel,
   type LinearizabilityResult,
-  type OperationStatus
+  type OperationStatus,
 } from './model.js'
 export { simulatedQueue, type Delivery, type QueueOptions } from './queue.js'
 export { simulatedAlarm, type AlarmInfo, type AlarmOptions } from './alarm.js'
@@ -812,14 +855,14 @@ export {
   type SimulatedDOStorage,
   type SimulatedDOContext,
   type SimulatedWaitUntilOptions,
-  type SimulatedFetchOptions
+  type SimulatedFetchOptions,
 } from './cloudflare.js'
 export {
   exploreMultiverse,
   withV8Coverage,
   type MultiverseOptions,
   type MultiverseResult,
-  type V8CoverageOptions
+  type V8CoverageOptions,
 } from './coverage.js'
 export {
   probe,
@@ -830,5 +873,5 @@ export {
   ProbeFailure,
   type ProbeOptions,
   type ProbeFinding,
-  type ProbeReport
+  type ProbeReport,
 } from './probe.js'

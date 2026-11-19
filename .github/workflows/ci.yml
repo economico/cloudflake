@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  ci:
+    name: Check, Test, and Pack (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['24']
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Vite+
+        uses: voidzero-dev/setup-vp@v1.22.0
+        with:
+          node-version: ${{ matrix.node }}
+          cache: true
+
+      - name: Install dependencies
+        run: vp install --frozen-lockfile
+
+      - name: Check formatting, linting, and types
+        run: vp check --deny-warnings
+
+      - name: Run unit and workerd simulation tests
+        run: vp test run
+
+      - name: Pack library (ESM, DTS, publint, attw)
+        run: vp pack
+
+      - name: Verify built package with runnable examples
+        run: |
+          vp node examples/counter.mjs
+          vp node --test examples/hegel.test.mjs
+
+      - name: Inspect publish tarball
+        run: vp pm pack -- --dry-run

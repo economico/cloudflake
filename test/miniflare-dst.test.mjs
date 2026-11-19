@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import test from 'node:test'
+import { test } from 'vite-plus/test'
 import { createCheckpointHub } from 'cloudflake'
 import {
   campaignWorkers,
@@ -14,7 +14,7 @@ import {
   probeWorkers,
   simulateWorkers,
   snapshotPersistDir,
-  workerQueue
+  workerQueue,
 } from 'cloudflake/miniflare'
 
 const RUNTIME_MODULE = createVirtualRuntimeModule()
@@ -43,16 +43,16 @@ test('workerd virtual runtime syncs Date.now, Math.random, crypto.randomUUID, as
     let bgValue
     const res = await simulateWorkers(
       { seed: 77, startTime: 1000 },
-      sim => ({
+      (sim) => ({
         modules: [
           { type: 'ESModule', path: 'index.mjs', contents: workerScript },
-          { type: 'ESModule', path: '__cloudflake_runtime.mjs', contents: RUNTIME_MODULE }
+          { type: 'ESModule', path: '__cloudflake_runtime.mjs', contents: RUNTIME_MODULE },
         ],
         compatibilityDate: '2026-07-01',
         kvNamespaces: ['KV'],
         serviceBindings: {
-          __CLOUDFLAKE__: controlServiceBinding(sim, { waitUntilDrop })
-        }
+          __CLOUDFLAKE__: controlServiceBinding(sim, { waitUntilDrop }),
+        },
       }),
       async (sim, runtime) => {
         sim.after(500, 'hit worker', async () => {
@@ -64,7 +64,7 @@ test('workerd virtual runtime syncs Date.now, Math.random, crypto.randomUUID, as
           const kv = await runtime.getKVNamespace('KV')
           bgValue = await kv.get('bg')
         })
-      }
+      },
     )
     return { payload, bgValue, res }
   }
@@ -72,10 +72,14 @@ test('workerd virtual runtime syncs Date.now, Math.random, crypto.randomUUID, as
   const first = await runOnce(1)
   const second = await runOnce(1)
   assert.equal(first.payload.now, 1500)
-  assert.deepEqual(first.payload, second.payload, 'Date.now, Math.random, and randomUUID replay identically')
+  assert.deepEqual(
+    first.payload,
+    second.payload,
+    'Date.now, Math.random, and randomUUID replay identically',
+  )
   assert.equal(first.bgValue, null, 'waitUntil was dropped when waitUntilDrop=1')
   assert.equal(first.res.faults.waituntil_drop, 1)
-  assert.ok(first.res.assertions.some(a => a.name === 'worker fetch executed' && a.hits === 1))
+  assert.ok(first.res.assertions.some((a) => a.name === 'worker fetch executed' && a.hits === 1))
 })
 
 test('workerd Durable Object alarms run on virtual calendar with retries across eviction', async () => {
@@ -117,11 +121,11 @@ test('workerd Durable Object alarms run on virtual calendar with retries across 
   let runtimeRef
   const result = await simulateWorkers(
     { seed: 12, startTime: 1000 },
-    sim => ({
+    (sim) => ({
       name: 'reminder-worker',
       modules: [
         { type: 'ESModule', path: 'index.mjs', contents: doScript },
-        { type: 'ESModule', path: '__cloudflake_runtime.mjs', contents: RUNTIME_MODULE }
+        { type: 'ESModule', path: '__cloudflake_runtime.mjs', contents: RUNTIME_MODULE },
       ],
       compatibilityDate: '2026-07-01',
       unsafeInspectDurableObjects: true,
@@ -131,12 +135,12 @@ test('workerd Durable Object alarms run on virtual calendar with retries across 
           alarm: { maxRetries: 3, retryBaseDelayMs: 5000 },
           onAlarmFire: async (_objectKey, info) => {
             const res = await runtimeRef.dispatchFetch('https://app.test/', {
-              headers: { 'x-cloudflake-alarm': JSON.stringify(info) }
+              headers: { 'x-cloudflake-alarm': JSON.stringify(info) },
             })
             if (!res.ok) throw new Error(await res.text())
-          }
-        })
-      }
+          },
+        }),
+      },
     }),
     async (sim, runtime) => {
       runtimeRef = runtime
@@ -145,7 +149,7 @@ test('workerd Durable Object alarms run on virtual calendar with retries across 
         assert.equal(await r.text(), 'scheduled')
       })
       sim.after(30_000, 'evict DO before alarm fires', () =>
-        runtime.unsafeEvictDurableObject('reminder-worker', 'Reminder', { name: 'acct-1' })
+        runtime.unsafeEvictDurableObject('reminder-worker', 'Reminder', { name: 'acct-1' }),
       )
       sim.onIdle('alarm retried after eviction and persisted', async () => {
         const r = await runtime.dispatchFetch('https://app.test/state')
@@ -153,7 +157,7 @@ test('workerd Durable Object alarms run on virtual calendar with retries across 
         // Scheduled at 1000 + 60_000 = 61_000; attempt 0 fails -> retry 1 at +5000 = 66_000
         assert.deepEqual(rows, [{ k: 'fired', v: '66000:1' }])
       })
-    }
+    },
   )
 
   assert.equal(result.time, 66_000)
@@ -183,25 +187,25 @@ test('workerQueue drives multi-message batches with partial batch retry into D1'
       modules: true,
       script: consumer,
       compatibilityDate: '2026-07-01',
-      d1Databases: ['DB']
+      d1Databases: ['DB'],
     }),
     async (sim, runtime) => {
       const db = await runtime.getD1Database('DB')
       await db.exec('CREATE TABLE inbox (id TEXT PRIMARY KEY, n INTEGER)')
       const q = await workerQueue(sim, runtime, 'batch-consumer', 'jobs', {
         maxBatchSize: 3,
-        maxBatchTimeoutMs: 5
+        maxBatchTimeoutMs: 5,
       })
       await q.sendBatch([
         { body: { n: 1, flaky: false } },
         { body: { n: 2, flaky: true } },
-        { body: { n: 3, flaky: false } }
+        { body: { n: 3, flaky: false } },
       ])
       sim.onIdle('all 3 rows committed', async () => {
         const rows = await db.prepare('SELECT n FROM inbox ORDER BY n').raw()
         assert.deepEqual(rows, [[1], [2], [3]])
       })
-    }
+    },
   )
 })
 
@@ -226,7 +230,7 @@ test('outboundFaultService + CheckpointHub interleaves same-URL requests and inj
   let finalCount = ''
   await simulateWorkers(
     { seed: 4 },
-    sim => {
+    (sim) => {
       const hub = createCheckpointHub(sim)
       sim._hub = hub
       return {
@@ -234,11 +238,10 @@ test('outboundFaultService + CheckpointHub interleaves same-URL requests and inj
         modules: true,
         compatibilityDate: '2026-07-01',
         kvNamespaces: ['KV'],
-        outboundService: outboundFaultService(
-          sim,
-          () => new Response('charged', { status: 200 }),
-          { hub, checkpointDelayMs: 5 }
-        )
+        outboundService: outboundFaultService(sim, () => new Response('charged', { status: 200 }), {
+          hub,
+          checkpointDelayMs: 5,
+        }),
       }
     },
     async (sim, runtime) => {
@@ -253,16 +256,20 @@ test('outboundFaultService + CheckpointHub interleaves same-URL requests and inj
         const kv = await runtime.getKVNamespace('KV')
         finalCount = await kv.get('count')
       })
-    }
+    },
   )
-  assert.equal(finalCount, '1', 'two concurrent requests to identical URL interleaved at outbound fetch')
+  assert.equal(
+    finalCount,
+    '1',
+    'two concurrent requests to identical URL interleaved at outbound fetch',
+  )
 
   // 2. Ambiguous outbound write: upstream executed, wrapped Worker receives thrown network error
   let upstreamCharges = 0
   let workerStatus = 0
   await simulateWorkers(
     { seed: 9 },
-    sim => ({
+    (sim) => ({
       modules: [
         {
           type: 'ESModule',
@@ -279,9 +286,9 @@ test('outboundFaultService + CheckpointHub interleaves same-URL requests and inj
                 }
               }
             })
-          `
+          `,
         },
-        { type: 'ESModule', path: '__cloudflake_runtime.mjs', contents: RUNTIME_MODULE }
+        { type: 'ESModule', path: '__cloudflake_runtime.mjs', contents: RUNTIME_MODULE },
       ],
       compatibilityDate: '2026-07-01',
       serviceBindings: { __CLOUDFLAKE__: controlServiceBinding(sim) },
@@ -291,15 +298,15 @@ test('outboundFaultService + CheckpointHub interleaves same-URL requests and inj
           upstreamCharges++
           return new Response('charged')
         },
-        { ambiguousRate: 1 }
-      )
+        { ambiguousRate: 1 },
+      ),
     }),
     async (sim, runtime) => {
       sim.after(0, 'charge', async () => {
         const r = await runtime.dispatchFetch('https://app.test/')
         workerStatus = r.status
       })
-    }
+    },
   )
   assert.equal(upstreamCharges, 1)
   assert.equal(workerStatus, 504)
@@ -334,29 +341,38 @@ test('campaignWorkers runs parallel workerd seeds with doNemesis and property co
       script,
       compatibilityDate: '2026-07-01',
       unsafeInspectDurableObjects: true,
-      durableObjects: { COUNTERS: { className: 'Counter', useSQLite: true } }
+      durableObjects: { COUNTERS: { className: 'Counter', useSQLite: true } },
     }),
     async (sim, runtime) => {
-      doNemesis(sim, runtime, [{ scriptName: 'counter', className: 'Counter', id: { name: 'shared' } }], {
-        ticks: 2,
-        windowMs: 10,
-        probability: 0.75
-      })
+      doNemesis(
+        sim,
+        runtime,
+        [{ scriptName: 'counter', className: 'Counter', id: { name: 'shared' } }],
+        {
+          ticks: 2,
+          windowMs: 10,
+          probability: 0.75,
+        },
+      )
       for (const id of ['a', 'b']) {
-        sim.deliver('inc ' + id, async () => {
-          const r = await runtime.dispatchFetch('https://app.test/', { method: 'POST', body: id })
-          assert.equal(r.status, 200)
-        }, { duplicate: 1, maxDelay: 10 })
+        sim.deliver(
+          'inc ' + id,
+          async () => {
+            const r = await runtime.dispatchFetch('https://app.test/', { method: 'POST', body: id })
+            assert.equal(r.status, 200)
+          },
+          { duplicate: 1, maxDelay: 10 },
+        )
       }
       sim.onIdle('exact count', async () => {
         const n = await (await runtime.dispatchFetch('https://app.test/')).json()
         sim.always('counter equals 2', n === 2, { n })
       })
-    }
+    },
   )
 
   assert.equal(res.runs, 4)
-  assert.ok(res.report.assertions.some(a => a.name === 'do evicted' && a.passed >= 1))
+  assert.ok(res.report.assertions.some((a) => a.name === 'do evicted' && a.passed >= 1))
 })
 
 test('snapshotPersistDir branches two independent workerd SQLite DO timelines from a midpoint', async () => {
@@ -388,13 +404,13 @@ test('snapshotPersistDir branches two independent workerd SQLite DO timelines fr
         script,
         compatibilityDate: '2026-07-01',
         durableObjectsPersist: baseDir,
-        durableObjects: { STORE: { className: 'Store', useSQLite: true } }
+        durableObjects: { STORE: { className: 'Store', useSQLite: true } },
       }),
       async (sim, runtime) => {
         sim.after(0, 'seed base item', async () => {
           await runtime.dispatchFetch('https://app.test/', { method: 'POST', body: 'base' })
         })
-      }
+      },
     )
 
     snapshot = await snapshotPersistDir(baseDir)
@@ -410,21 +426,21 @@ test('snapshotPersistDir branches two independent workerd SQLite DO timelines fr
           script,
           compatibilityDate: '2026-07-01',
           durableObjectsPersist: dir,
-          durableObjects: { STORE: { className: 'Store', useSQLite: true } }
+          durableObjects: { STORE: { className: 'Store', useSQLite: true } },
         }),
         async (sim, runtime) => {
           sim.after(0, 'write branch item', async () => {
             await runtime.dispatchFetch('https://app.test/', { method: 'POST', body: item })
             items = await (await runtime.dispatchFetch('https://app.test/')).json()
           })
-        }
+        },
       )
       return items
     }
 
     const [itemsA, itemsB] = await Promise.all([
       runBranch(branchA.dir, 'alpha'),
-      runBranch(branchB.dir, 'beta')
+      runBranch(branchB.dir, 'beta'),
     ])
     assert.deepEqual(itemsA, ['alpha', 'base'])
     assert.deepEqual(itemsB, ['base', 'beta'])
@@ -490,17 +506,17 @@ test('createBindingProxies intercepts Worker-side env.QUEUE, env.KV, and env.DO 
 
   const res = await simulateWorkers(
     { seed: 7 },
-    sim => {
+    (sim) => {
       const proxies = createBindingProxies(sim, {
         queues: {
-          JOBS: { workerName: 'app', queueName: 'jobs' }
+          JOBS: { workerName: 'app', queueName: 'jobs' },
         },
         kv: {
-          CACHE: { propagationDelayMs: 60_000, staleRead: 1 }
+          CACHE: { propagationDelayMs: 60_000, staleRead: 1 },
         },
         durableObjects: {
-          LEDGER: { scriptName: 'app', className: 'Ledger', rpcAmbiguous: 1 }
-        }
+          LEDGER: { scriptName: 'app', className: 'Ledger', rpcAmbiguous: 1 },
+        },
       })
       proxiesRef = proxies
       return {
@@ -512,10 +528,10 @@ test('createBindingProxies intercepts Worker-side env.QUEUE, env.KV, and env.DO 
             compatibilityDate: '2026-07-01',
             unsafeInspectDurableObjects: true,
             durableObjects: { REAL_LEDGER: { className: 'Ledger', useSQLite: true } },
-            serviceBindings: { ...proxies.serviceBindings }
+            serviceBindings: { ...proxies.serviceBindings },
           },
-          proxies.proxyWorker
-        ]
+          proxies.proxyWorker,
+        ],
       }
     },
     async (sim, runtime) => {
@@ -543,10 +559,14 @@ test('createBindingProxies intercepts Worker-side env.QUEUE, env.KV, and env.DO 
       sim.onIdle('verify queue processed on virtual time', () => {
         assert.equal(proxiesRef.kv.CACHE.inspect('processed:job-1'), 'yes')
       })
-    }
+    },
   )
 
-  assert.equal(kvSeen, 'v1', 'Worker-side env.CACHE.get() observed stale v1 during propagation window')
+  assert.equal(
+    kvSeen,
+    'v1',
+    'Worker-side env.CACHE.get() observed stale v1 during propagation window',
+  )
   assert.equal(doResponseStatus, 503, 'Worker received reset error on ambiguous DO RPC')
   assert.equal(doFinalCount, 1, 'DO actually committed tx-1 before ambiguous reset!')
   assert.equal(res.faults.kv_stale_read, 1)
@@ -573,26 +593,30 @@ test('probeWorkers collects failures, minimizes faults, and emits structured age
       allowInCI: true,
       throwOnFailure: false,
       printGuidance: 'never',
-      replayCommand: 'CLOUDFLAKE_SEED={seed} node probe-worker.mjs'
+      replayCommand: 'CLOUDFLAKE_SEED={seed} node probe-worker.mjs',
     },
     () => ({
       modules: true,
       script: brokenScript,
       compatibilityDate: '2026-07-01',
-      kvNamespaces: ['KV']
+      kvNamespaces: ['KV'],
     }),
     async (sim, runtime) => {
       for (let i = 0; i < 3; i++) {
-        sim.deliver(`inc-${i}`, async () => {
-          const r = await runtime.dispatchFetch('https://app.test/')
-          assert.equal(r.status, 200)
-        }, { duplicate: 1 })
+        sim.deliver(
+          `inc-${i}`,
+          async () => {
+            const r = await runtime.dispatchFetch('https://app.test/')
+            assert.equal(r.status, 200)
+          },
+          { duplicate: 1 },
+        )
       }
       sim.onIdle('exact count', async () => {
         const kv = await runtime.getKVNamespace('KV')
         assert.equal(await kv.get('n'), '3')
       })
-    }
+    },
   )
 
   assert.equal(report.status, 'fail_safety')
@@ -626,11 +650,16 @@ test('createBindingProxies forwards DO JS RPC methods through reset/ambiguous fa
   const seen = []
   const res = await simulateWorkers(
     { seed: 3 },
-    sim => {
+    (sim) => {
       proxiesRef = createBindingProxies(sim, {
         durableObjects: {
-          COUNTER: { scriptName: 'app', className: 'Counter', rpcAmbiguous: 1, rpcMethods: ['increment'] }
-        }
+          COUNTER: {
+            scriptName: 'app',
+            className: 'Counter',
+            rpcAmbiguous: 1,
+            rpcMethods: ['increment'],
+          },
+        },
       })
       return {
         workers: [
@@ -640,10 +669,10 @@ test('createBindingProxies forwards DO JS RPC methods through reset/ambiguous fa
             script: appScript,
             compatibilityDate: '2026-07-01',
             durableObjects: { REAL_COUNTER: 'Counter' },
-            serviceBindings: { ...proxiesRef.serviceBindings }
+            serviceBindings: { ...proxiesRef.serviceBindings },
           },
-          proxiesRef.proxyWorker
-        ]
+          proxiesRef.proxyWorker,
+        ],
       }
     },
     async (sim, runtime) => {
@@ -657,17 +686,21 @@ test('createBindingProxies forwards DO JS RPC methods through reset/ambiguous fa
         const r = await runtime.dispatchFetch('https://app.test/')
         seen.push([r.status, await r.text()])
       })
-    }
+    },
   )
   assert.equal(seen[0][0], 503)
   assert.match(seen[0][1], /connection lost after execution/)
   assert.deepEqual(seen[1], [200, '2'], 'the ambiguous call committed before the reset')
   assert.equal(res.faults.do_rpc_ambiguous, 1)
   assert.throws(
-    () => createBindingProxies({ rngStream: () => ({}) }, {
-      durableObjects: { X: { scriptName: 'a', className: 'B', rpcMethods: ['bad name'] } }
-    }),
-    RangeError
+    () =>
+      createBindingProxies(
+        { rngStream: () => ({}) },
+        {
+          durableObjects: { X: { scriptName: 'a', className: 'B', rpcMethods: ['bad name'] } },
+        },
+      ),
+    RangeError,
   )
 })
 
@@ -684,22 +717,24 @@ test('a Worker that swallows a failed assertion still fails the run', async () =
   await assert.rejects(
     simulateWorkers(
       { seed: 1 },
-      sim => ({
+      (sim) => ({
         modules: [
           { type: 'ESModule', path: 'index.mjs', contents: workerScript },
-          { type: 'ESModule', path: '__cloudflake_runtime.mjs', contents: RUNTIME_MODULE }
+          { type: 'ESModule', path: '__cloudflake_runtime.mjs', contents: RUNTIME_MODULE },
         ],
         compatibilityDate: '2026-07-01',
-        serviceBindings: { __CLOUDFLAKE__: controlServiceBinding(sim) }
+        serviceBindings: { __CLOUDFLAKE__: controlServiceBinding(sim) },
       }),
       async (sim, runtime) => {
         sim.after(1, 'hit worker', async () => {
           const r = await runtime.dispatchFetch('https://app.test/')
           assert.equal(await r.text(), 'ok')
         })
-      }
+      },
     ),
-    e => /always\("balance non-negative"\) violated/.test(e.cause?.message) && e.phase === 'always balance non-negative'
+    (e) =>
+      /always\("balance non-negative"\) violated/.test(e.cause?.message) &&
+      e.phase === 'always balance non-negative',
   )
 })
 
@@ -707,5 +742,8 @@ test('campaignWorkers validates runs and durationMs', async () => {
   const noop = () => ({})
   await assert.rejects(campaignWorkers({ seed: 0, runs: Number('abc') }, noop, noop), RangeError)
   await assert.rejects(campaignWorkers({ seed: 0, runs: 0 }, noop, noop), RangeError)
-  await assert.rejects(campaignWorkers({ seed: 0, durationMs: Number('abc') }, noop, noop), RangeError)
+  await assert.rejects(
+    campaignWorkers({ seed: 0, durationMs: Number('abc') }, noop, noop),
+    RangeError,
+  )
 })

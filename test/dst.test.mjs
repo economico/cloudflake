@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import test from 'node:test'
+import { test } from 'vite-plus/test'
 import {
   AmbiguousFailureError,
   HistoryRecorder,
@@ -8,7 +8,6 @@ import {
   PropertyCoverageFailure,
   SimulationFailure,
   campaign,
-  checkLinearizability,
   client,
   exploreMultiverse,
   formatCampaignReport,
@@ -17,7 +16,7 @@ import {
   probe,
   seedFromEnv,
   shouldRunProbe,
-  simulate
+  simulate,
 } from 'cloudflake'
 
 test('Prng produces deterministic streams, isolated branches, and valid combinators', () => {
@@ -30,16 +29,22 @@ test('Prng produces deterministic streams, isolated branches, and valid combinat
 
   const arr = [1, 2, 3, 4, 5, 6]
   a.shuffle(arr)
-  assert.deepEqual([...arr].sort((x, y) => x - y), [1, 2, 3, 4, 5, 6])
+  assert.deepEqual(
+    [...arr].sort((x, y) => x - y),
+    [1, 2, 3, 4, 5, 6],
+  )
 
-  const picked = a.weighted([[0, 'never'], [10, 'always']])
+  const picked = a.weighted([
+    [0, 'never'],
+    [10, 'always'],
+  ])
   assert.equal(picked, 'always')
 
   for (const dist of [
     { kind: 'uniform', min: 5, max: 10 },
     { kind: 'exponential', mean: 20, max: 100 },
     { kind: 'pareto', min: 1, alpha: 1.5, max: 500 },
-    { kind: 'bimodal', fastMax: 5, slowMin: 50, slowMax: 100, slowChance: 0.3 }
+    { kind: 'bimodal', fastMax: 5, slowMin: 50, slowMax: 100, slowChance: 0.3 },
   ]) {
     const d = a.delay(dist)
     assert.ok(Number.isSafeInteger(d) && d >= 0)
@@ -47,7 +52,7 @@ test('Prng produces deterministic streams, isolated branches, and valid combinat
 })
 
 test('Antithesis assertions: sometimes passes when hit on at least one seed and fails when never hit', async () => {
-  const res = await campaign({ seed: 0, runs: 50 }, sim => {
+  const res = await campaign({ seed: 0, runs: 50 }, (sim) => {
     const hit = sim.int(10) === 7
     sim.sometimes('lucky seven', hit, { seed: sim.seed })
     sim.always('seed non-negative', sim.seed >= 0)
@@ -59,52 +64,60 @@ test('Antithesis assertions: sometimes passes when hit on at least one seed and 
   assert.match(summary, /\[PASS\] always "seed non-negative"/)
 
   await assert.rejects(
-    campaign({ seed: 0, runs: 20 }, sim => {
+    campaign({ seed: 0, runs: 20 }, (sim) => {
       sim.sometimes('impossible state', false)
     }),
-    err => {
+    (err) => {
       assert.ok(err instanceof PropertyCoverageFailure)
       assert.equal(err.unmetProperties.length, 1)
       assert.equal(err.unmetProperties[0].name, 'impossible state')
       return true
-    }
+    },
   )
 })
 
 test('Antithesis assertions: always, unreachable, and requireReachable enforce safety and liveness', async () => {
   await assert.rejects(
-    simulate({ seed: 1 }, sim => {
+    simulate({ seed: 1 }, (sim) => {
       sim.always('positive balance', false, { balance: -5 })
     }),
-    err => err instanceof SimulationFailure && err.phase === 'always positive balance'
+    (err) => err instanceof SimulationFailure && err.phase === 'always positive balance',
   )
 
   await assert.rejects(
-    simulate({ seed: 1 }, sim => {
+    simulate({ seed: 1 }, (sim) => {
       sim.unreachable('corrupt state')
     }),
-    err => err instanceof SimulationFailure && err.phase === 'unreachable corrupt state'
+    (err) => err instanceof SimulationFailure && err.phase === 'unreachable corrupt state',
   )
 
   await assert.rejects(
-    campaign({ seed: 0, runs: 10, requireReachable: ['recovery path'] }, sim => {
+    campaign({ seed: 0, runs: 10, requireReachable: ['recovery path'] }, (sim) => {
       sim.alwaysOrUnreachable('unused branch', true)
     }),
-    err => err instanceof PropertyCoverageFailure && err.unmetProperties[0].name === 'recovery path'
+    (err) =>
+      err instanceof PropertyCoverageFailure && err.unmetProperties[0].name === 'recovery path',
   )
 })
 
 test('Swarm testing varies fault profiles per seed and chaos->heal->onIdle drains cleanly', async () => {
   const profiles = []
-  const res = await campaign({ seed: 100, runs: 25, healAt: 100 }, sim => {
+  const res = await campaign({ seed: 100, runs: 25, healAt: 100 }, (sim) => {
     profiles.push(sim.profile)
     let delivered = 0
     const sendWithRetry = (attempt = 1) => {
       let succeeded = false
-      sim.deliver(`msg-${attempt}`, () => { succeeded = true; delivered++ }, {
-        drop: sim.profile.drop,
-        maxDelay: 10
-      })
+      sim.deliver(
+        `msg-${attempt}`,
+        () => {
+          succeeded = true
+          delivered++
+        },
+        {
+          drop: sim.profile.drop,
+          maxDelay: 10,
+        },
+      )
       sim.after(15, `check-${attempt}`, () => {
         if (!succeeded) sendWithRetry(attempt + 1)
       })
@@ -116,24 +129,36 @@ test('Swarm testing varies fault profiles per seed and chaos->heal->onIdle drain
     })
   })
   assert.equal(res.runs, 25)
-  const distinctDropRates = new Set(profiles.map(p => p.drop))
+  const distinctDropRates = new Set(profiles.map((p) => p.drop))
   assert.ok(distinctDropRates.size > 5, 'swarm testing should explore varied drop regimes')
 })
 
 test('deliver supports multi-duplicates, ambiguous failures, and zero-step drops', async () => {
   let runs = 0
   let ambiguousHits = 0
-  const result = await simulate({ seed: 42 }, sim => {
-    sim.deliver('dropped', () => { assert.fail('must not run') }, { drop: 1 })
-    sim.deliver('multi', () => { runs++ }, {
-      duplicate: 1,
-      maxDuplicates: 2,
-      ambiguous: 1,
-      onAmbiguous: err => {
-        assert.ok(err instanceof AmbiguousFailureError)
-        ambiguousHits++
-      }
-    })
+  const result = await simulate({ seed: 42 }, (sim) => {
+    sim.deliver(
+      'dropped',
+      () => {
+        assert.fail('must not run')
+      },
+      { drop: 1 },
+    )
+    sim.deliver(
+      'multi',
+      () => {
+        runs++
+      },
+      {
+        duplicate: 1,
+        maxDuplicates: 2,
+        ambiguous: 1,
+        onAmbiguous: (err) => {
+          assert.ok(err instanceof AmbiguousFailureError)
+          ambiguousHits++
+        },
+      },
+    )
   })
   assert.equal(runs, 3) // 1 original + 2 duplicates
   assert.equal(ambiguousHits, 3)
@@ -144,9 +169,15 @@ test('deliver supports multi-duplicates, ambiguous failures, and zero-step drops
 })
 
 test('campaign supports onFailure collect mode and failure bucketing', async () => {
-  const res = await campaign({ seed: 0, runs: 10, onFailure: 'collect', requireProperties: false }, sim => {
-    if (sim.seed % 2 === 0) sim.after(1, 'even crash', () => { throw new Error('boom even') })
-  })
+  const res = await campaign(
+    { seed: 0, runs: 10, onFailure: 'collect', requireProperties: false },
+    (sim) => {
+      if (sim.seed % 2 === 0)
+        sim.after(1, 'even crash', () => {
+          throw new Error('boom even')
+        })
+    },
+  )
   assert.equal(res.runs, 10)
   assert.equal(res.report.failures.length, 1)
   assert.equal(res.report.failures[0].count, 5)
@@ -154,16 +185,20 @@ test('campaign supports onFailure collect mode and failure bucketing', async () 
 })
 
 test('minimizeFaults delta-debugs a noisy failure down to the minimal fault set', async () => {
-  const scenario = sim => {
+  const scenario = (sim) => {
     let balance = 0
     for (let i = 0; i < 12; i++) {
       // Only item #7 lacks deduplication; all other items deduplicate properly
       const seen = new Set()
-      sim.deliver(`pay-${i}`, () => {
-        if (i !== 7 && seen.has(i)) return
-        seen.add(i)
-        balance += 10
-      }, { duplicate: 1, maxDelay: 5 })
+      sim.deliver(
+        `pay-${i}`,
+        () => {
+          if (i !== 7 && seen.has(i)) return
+          seen.add(i)
+          balance += 10
+        },
+        { duplicate: 1, maxDelay: 5 },
+      )
     }
     sim.onIdle('exact sum', () => assert.equal(balance, 120))
   }
@@ -180,7 +215,7 @@ test('HistoryRecorder & checkLinearizability validate concurrent + indeterminate
     step: (state, op) => {
       if (op.type === 'inc') return [state + op.delta, state + op.delta]
       return [state, state]
-    }
+    },
   }
 
   // Case 1: Indeterminate write DID commit on server; subsequent read sees it -> linearizable!
@@ -225,10 +260,15 @@ test('HistoryRecorder & checkLinearizability validate concurrent + indeterminate
 
 test('formatTrace renders causal event chains and seedFromEnv parses env override', async () => {
   const steps = []
-  await simulate({ seed: 7, onStep: s => steps.push(s) }, sim => {
-    sim.after(0, 'root', () => {
-      sim.after(5, 'child', () => {}, { kind: 'deliver', actor: 'worker-a' })
-    }, { kind: 'client', actor: 'c1' })
+  await simulate({ seed: 7, onStep: (s) => steps.push(s) }, (sim) => {
+    sim.after(
+      0,
+      'root',
+      () => {
+        sim.after(5, 'child', () => {}, { kind: 'deliver', actor: 'worker-a' })
+      },
+      { kind: 'client', actor: 'c1' },
+    )
   })
   assert.equal(steps[1].causedBy, steps[0].id)
   const rendered = formatTrace(steps)
@@ -243,14 +283,14 @@ test('formatTrace renders causal event chains and seedFromEnv parses env overrid
 
 test('waitFor detects deadlocks when parked clients never wake', async () => {
   await assert.rejects(
-    simulate({ seed: 1 }, sim => {
+    simulate({ seed: 1 }, (sim) => {
       client(sim, 'stuck-client', async () => {
         await sim.waitFor(() => {
           // Never invokes wake() -> deadlock
         }, 'unreachable lock')
       })
     }),
-    err => err instanceof SimulationFailure && err.phase === 'deadlock detection'
+    (err) => err instanceof SimulationFailure && err.phase === 'deadlock detection',
   )
 })
 
@@ -264,7 +304,7 @@ test('exploreMultiverse discovers deep multi-stage states via coverage-guided sn
     maxSnapshots: 8,
     v8Coverage: true,
     createRoot: () => ({ stage: 0 }),
-    cloneSnapshot: s => ({ stage: s.stage }),
+    cloneSnapshot: (s) => ({ stage: s.stage }),
     step: (sim, state) => {
       sim.cover(`enter-stage-${state.stage}`)
       if (state.stage === 0 && sim.rng.chance(0.4)) state.stage = 1
@@ -272,7 +312,7 @@ test('exploreMultiverse discovers deep multi-stage states via coverage-guided sn
       else if (state.stage === 2 && sim.rng.chance(0.4)) state.stage = 3
       sim.cover(`exit-stage-${state.stage}`)
       sim.sometimes('reached deep stage 3', state.stage === 3)
-    }
+    },
   })
 
   assert.ok(res.snapshotsCreated >= 2, 'should promote novel states into snapshot corpus')
@@ -293,20 +333,24 @@ test('probe auto-skips in CI by default and emits minimized agent guidance on fa
       allowInCI: true,
       throwOnFailure: false,
       printGuidance: 'never',
-      replayCommand: 'CLOUDFLAKE_SEED={seed} node probe.mjs'
+      replayCommand: 'CLOUDFLAKE_SEED={seed} node probe.mjs',
     },
-    sim => {
+    (sim) => {
       let balance = 0
       for (let i = 0; i < 6; i++) {
         const seen = new Set()
-        sim.deliver(`tx-${i}`, () => {
-          if (i !== 3 && seen.has(i)) return
-          seen.add(i)
-          balance += 10
-        }, { duplicate: 1 })
+        sim.deliver(
+          `tx-${i}`,
+          () => {
+            if (i !== 3 && seen.has(i)) return
+            seen.add(i)
+            balance += 10
+          },
+          { duplicate: 1 },
+        )
       }
       sim.onIdle('exact balance', () => assert.equal(balance, 60))
-    }
+    },
   )
 
   assert.equal(report.status, 'fail_safety')
@@ -324,12 +368,12 @@ test('probe auto-skips in CI by default and emits minimized agent guidance on fa
         seed: 0,
         runs: 2,
         allowInCI: true,
-        printGuidance: 'never'
+        printGuidance: 'never',
       },
-      sim => {
+      (sim) => {
         sim.always('broken', false)
-      }
+      },
     ),
-    ProbeFailure
+    ProbeFailure,
   )
 })

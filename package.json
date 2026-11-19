@@ -2,23 +2,28 @@
   "name": "cloudflake",
   "version": "0.1.1",
   "description": "Seeded simulation testing for Cloudflare Workers and Durable Objects",
-  "type": "module",
+  "keywords": [
+    "cloudflare",
+    "deterministic",
+    "durable-objects",
+    "simulation-testing",
+    "workers"
+  ],
+  "homepage": "https://github.com/economico/cloudflake#readme",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/economico/cloudflake.git"
   },
-  "homepage": "https://github.com/economico/cloudflake#readme",
-  "keywords": [
-    "cloudflare",
-    "workers",
-    "durable-objects",
-    "simulation-testing",
-    "deterministic"
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "examples",
+    "skills"
   ],
-  "engines": {
-    "node": ">=24"
-  },
+  "type": "module",
+  "sideEffects": false,
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -29,19 +34,27 @@
       "import": "./dist/miniflare.js"
     }
   },
-  "files": [
-    "dist",
-    "README.md",
-    "LICENSE",
-    "examples",
-    "skills"
-  ],
   "scripts": {
-    "build": "tsc",
-    "test": "npm run build && node --test test/*.test.mjs",
-    "bench": "node bench/scheduler.mjs",
-    "prepack": "npm run build",
-    "test:hegel": "npm run build && node --test examples/hegel.test.mjs"
+    "build": "vp pack",
+    "dev": "vp pack --watch",
+    "check": "vp check",
+    "fmt": "vp fmt",
+    "lint": "vp lint",
+    "test": "vp test run",
+    "test:watch": "vp test",
+    "test:hegel": "vp pack && node --test examples/hegel.test.mjs",
+    "bench": "vp pack && node bench/scheduler.mjs",
+    "prepack": "vp pack"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/core": "^0.18.5",
+    "@cloudflare/workers-types": "^4.20260702.1",
+    "@hegeldev/hegel": "^0.5.9",
+    "@types/node": "^24",
+    "miniflare": "^4",
+    "publint": "^0.3.25",
+    "typescript": "^5.9.3",
+    "vite-plus": "1.7.0"
   },
   "peerDependencies": {
     "miniflare": "^4.20260730.0 || ^5.0.0-0"
@@ -51,11 +64,10 @@
       "optional": true
     }
   },
-  "devDependencies": {
-    "@cloudflare/workers-types": "^4.20260702.1",
-    "@hegeldev/hegel": "^0.5.9",
-    "@types/node": "^24",
-    "miniflare": "^4",
-    "typescript": "^5.9.3"
+  "overrides": {
+    "vite": "npm:@voidzero-dev/vite-plus-core@8.3.8000"
+  },
+  "engines": {
+    "node": ">=24"
   }
 }

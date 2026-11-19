@@ -59,7 +59,7 @@ export class HistoryRecorder<Op, Res> {
       actor,
       op,
       invokeTime: this.clock(),
-      status: 'pending'
+      status: 'pending',
     }
     this.entries.push(entry)
     return {
@@ -78,7 +78,7 @@ export class HistoryRecorder<Op, Res> {
         entry.status = 'indeterminate'
         entry.error = error
         entry.completeTime = this.clock()
-      }
+      },
     }
   }
 
@@ -86,7 +86,10 @@ export class HistoryRecorder<Op, Res> {
     return this.entries
   }
 
-  check<State>(model: LinearModel<State, Op, Res>, options?: { maxVisits?: number }): LinearizabilityResult<Op, Res> {
+  check<State>(
+    model: LinearModel<State, Op, Res>,
+    options?: { maxVisits?: number },
+  ): LinearizabilityResult<Op, Res> {
     return checkLinearizability(this.entries, model, options)
   }
 }
@@ -100,21 +103,21 @@ export class HistoryRecorder<Op, Res> {
 export function checkLinearizability<State, Op, Res>(
   history: readonly HistoryEntry<Op, Res>[],
   model: LinearModel<State, Op, Res>,
-  options: { maxVisits?: number } = {}
+  options: { maxVisits?: number } = {},
 ): LinearizabilityResult<Op, Res> {
   const equal = model.equal ?? defaultEqual
   const stateKey = model.stateKey ?? defaultStateKey
   const maxVisits = options.maxVisits ?? 200_000
 
-  const relevant = history.filter(e => e.status !== 'fail')
+  const relevant = history.filter((e) => e.status !== 'fail')
   const n = relevant.length
   if (n === 0) return { ok: true, linearization: [] }
 
   // Precompute indices of definite 'ok' entries vs optional ('indeterminate'/'pending')
-  const isRequired: boolean[] = relevant.map(e => e.status === 'ok')
+  const isRequired: boolean[] = relevant.map((e) => e.status === 'ok')
   const requiredMask = relevant.reduce(
     (mask, e, idx) => (e.status === 'ok' ? mask | (1n << BigInt(idx)) : mask),
-    0n
+    0n,
   )
 
   const visited = new Set<string>()

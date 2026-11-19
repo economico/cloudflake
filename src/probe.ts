@@ -11,7 +11,7 @@ import {
   type CampaignOptions,
   type FaultEvent,
   type Scenario,
-  type Step
+  type Step,
 } from './index.js'
 
 export type ProbeFinding = {
@@ -46,17 +46,17 @@ export class ProbeFailure extends Error {
 
 export function isCI(env: NodeJS.ProcessEnv = process.env): boolean {
   return Boolean(
-    env.CI && env.CI !== '0' && env.CI !== 'false' ||
+    (env.CI && env.CI !== '0' && env.CI !== 'false') ||
     env.GITHUB_ACTIONS ||
     env.BUILDKITE ||
     env.GITLAB_CI ||
     env.CIRCLECI ||
-    env.JENKINS_URL
+    env.JENKINS_URL,
   )
 }
 
 export function shouldRunProbe(
-  options: { allowInCI?: boolean; requireEnv?: boolean; env?: NodeJS.ProcessEnv } = {}
+  options: { allowInCI?: boolean; requireEnv?: boolean; env?: NodeJS.ProcessEnv } = {},
 ): { run: boolean; reason?: string } {
   const env = options.env ?? process.env
   if (env.CLOUDFLAKE_PROBE === '0' || env.CLOUDFLAKE_PROBE === 'false') {
@@ -77,65 +77,65 @@ export function shouldRunProbe(
 export function inferFailureHints(
   phase: string,
   message: string,
-  faults: readonly FaultEvent[]
+  faults: readonly FaultEvent[],
 ): string[] {
   const hints: string[] = []
-  const kinds = new Set(faults.map(f => f.kind))
+  const kinds = new Set(faults.map((f) => f.kind))
   const text = `${phase} ${message}`.toLowerCase()
 
   if (kinds.has('duplicate')) {
     hints.push(
-      'Duplicate delivery triggered this failure. Ensure writes/effects are deduplicated by a stable idempotency key (e.g. `INSERT OR IGNORE`, conditional update, or durable seen-set).'
+      'Duplicate delivery triggered this failure. Ensure writes/effects are deduplicated by a stable idempotency key (e.g. `INSERT OR IGNORE`, conditional update, or durable seen-set).',
     )
   }
   if (kinds.has('do_evict')) {
     hints.push(
-      'Durable Object eviction triggered this failure. Check for state held only in JS instance fields/caches instead of SQLite/durable storage, or missing cold-boot hydration in the constructor.'
+      'Durable Object eviction triggered this failure. Check for state held only in JS instance fields/caches instead of SQLite/durable storage, or missing cold-boot hydration in the constructor.',
     )
   }
   if (kinds.has('ambiguous') || kinds.has('do_rpc_ambiguous') || kinds.has('outbound_ambiguous')) {
     hints.push(
-      'An ambiguous (gray) failure occurred: the callee executed/committed, then the response failed. Retrying without idempotency keys or assuming a failed RPC did not commit will corrupt state.'
+      'An ambiguous (gray) failure occurred: the callee executed/committed, then the response failed. Retrying without idempotency keys or assuming a failed RPC did not commit will corrupt state.',
     )
   }
   if (kinds.has('kv_stale_read')) {
     hints.push(
-      'A stale KV read occurred within the propagation window. Cloudflare KV is eventually consistent; move strongly-consistent coordination or read-after-write state to a Durable Object or D1.'
+      'A stale KV read occurred within the propagation window. Cloudflare KV is eventually consistent; move strongly-consistent coordination or read-after-write state to a Durable Object or D1.',
     )
   }
   if (kinds.has('alarm_duplicate') || kinds.has('alarm_retry')) {
     hints.push(
-      'A Durable Object alarm retried or fired more than once. Alarms are at-least-once; make `alarm()` idempotent and record completion durably before/alongside side effects.'
+      'A Durable Object alarm retried or fired more than once. Alarms are at-least-once; make `alarm()` idempotent and record completion durably before/alongside side effects.',
     )
   }
   if (kinds.has('waituntil_drop')) {
     hints.push(
-      'A `ctx.waitUntil()` task was dropped before completion. Do not rely on `waitUntil` for durable state transitions; persist first or enqueue to a durable Queue/DO.'
+      'A `ctx.waitUntil()` task was dropped before completion. Do not rely on `waitUntil` for durable state transitions; persist first or enqueue to a durable Queue/DO.',
     )
   }
   if (kinds.has('drop') || kinds.has('do_rpc_reset') || kinds.has('outbound_timeout')) {
     hints.push(
-      'A dropped message or transient reset triggered this failure. Verify retry loops, backoff, and that partial progress is recoverable on retry.'
+      'A dropped message or transient reset triggered this failure. Verify retry loops, backoff, and that partial progress is recoverable on retry.',
     )
   }
   if (text.includes('deadlock')) {
     hints.push(
-      'A cooperative client remained parked after the calendar drained. Check for cyclic `blockConcurrencyWhile` / lock waits or a `waitFor()` whose wake signal is never triggered.'
+      'A cooperative client remained parked after the calendar drained. Check for cyclic `blockConcurrencyWhile` / lock waits or a `waitFor()` whose wake signal is never triggered.',
     )
   }
   if (text.includes('linearizable')) {
     hints.push(
-      'The observed operation history is not linearizable. Check for lost updates across async I/O boundaries (missing `blockConcurrencyWhile` or transaction) or stale reads.'
+      'The observed operation history is not linearizable. Check for lost updates across async I/O boundaries (missing `blockConcurrencyWhile` or transaction) or stale reads.',
     )
   }
   if (text.includes('maxsteps')) {
     hints.push(
-      'Event budget (`maxSteps`) exceeded. Check for unbounded retry loops, self-rescheduling alarms without termination, or missing backoff/heal termination.'
+      'Event budget (`maxSteps`) exceeded. Check for unbounded retry loops, self-rescheduling alarms without termination, or missing backoff/heal termination.',
     )
   }
   if (hints.length === 0) {
     hints.push(
-      'No injected faults were required to trigger this failure — inspect the causal trace for ordering/re-entrancy races or logic bugs in the handler.'
+      'No injected faults were required to trigger this failure — inspect the causal trace for ordering/re-entrancy races or logic bugs in the handler.',
     )
   }
   return hints
@@ -155,26 +155,34 @@ export function formatAgentGuidance(probeReport: Omit<ProbeReport, 'guidance'>):
   if (r) {
     const rate = r.durationMs > 0 ? Math.round((r.runs * 1000) / r.durationMs) : r.runs
     lines.push(
-      `Explored: ${r.runs} seeds, ${r.steps} steps, ${r.coverageEdges.length} unique coverage edges in ${(r.durationMs / 1000).toFixed(2)}s (${rate} runs/s)`
+      `Explored: ${r.runs} seeds, ${r.steps} steps, ${r.coverageEdges.length} unique coverage edges in ${(r.durationMs / 1000).toFixed(2)}s (${rate} runs/s)`,
     )
   }
 
   if (probeReport.findings.length > 0) {
     lines.push('')
-    lines.push(`## Safety Failures (${probeReport.findings.length} distinct bucket${probeReport.findings.length === 1 ? '' : 's'})`)
+    lines.push(
+      `## Safety Failures (${probeReport.findings.length} distinct bucket${probeReport.findings.length === 1 ? '' : 's'})`,
+    )
     probeReport.findings.forEach((f, idx) => {
       lines.push('')
       lines.push(`### Finding ${idx + 1}: \`${f.phase}\``)
       lines.push(`- **Error:** ${f.message}`)
-      lines.push(`- **Frequency:** ${f.occurrences} failing seed(s) (first seed: \`${f.firstSeed}\`, sample: ${f.sampleSeeds.join(', ')})`)
+      lines.push(
+        `- **Frequency:** ${f.occurrences} failing seed(s) (first seed: \`${f.firstSeed}\`, sample: ${f.sampleSeeds.join(', ')})`,
+      )
       lines.push(`- **Replay command:** \`${f.replayCommand}\``)
       if (f.minimalFaults.length > 0) {
-        lines.push(`- **Minimal fault trigger** (minimized from ${f.originalFaultCount} injected faults to ${f.minimalFaults.length}):`)
+        lines.push(
+          `- **Minimal fault trigger** (minimized from ${f.originalFaultCount} injected faults to ${f.minimalFaults.length}):`,
+        )
         for (const fault of f.minimalFaults) {
           lines.push(`  - \`t=${fault.time}\` \`[${fault.kind}]\` ${fault.label}`)
         }
       } else {
-        lines.push(`- **Minimal fault trigger:** 0 faults required (pure schedule/ordering failure)`)
+        lines.push(
+          `- **Minimal fault trigger:** 0 faults required (pure schedule/ordering failure)`,
+        )
       }
       lines.push(`- **Diagnostic guidance:**`)
       for (const hint of f.hints) lines.push(`  - ${hint}`)
@@ -192,8 +200,12 @@ export function formatAgentGuidance(probeReport: Omit<ProbeReport, 'guidance'>):
     lines.push('')
     lines.push(`## Unmet Property Coverage (${probeReport.unmetProperties.length})`)
     for (const prop of probeReport.unmetProperties) {
-      lines.push(`- **\`${prop.kind}("${prop.name}")\`** — hits=${prop.hits}, passed=${prop.passed}, failed=${prop.failed}`)
-      lines.push(`  - Guidance: The probe never satisfied this state across ${r?.runs ?? 0} seeds. Increase probe duration, widen \`swarm\` fault bounds, or add workload actions that drive the system into this regime.`)
+      lines.push(
+        `- **\`${prop.kind}("${prop.name}")\`** — hits=${prop.hits}, passed=${prop.passed}, failed=${prop.failed}`,
+      )
+      lines.push(
+        `  - Guidance: The probe never satisfied this state across ${r?.runs ?? 0} seeds. Increase probe duration, widen \`swarm\` fault bounds, or add workload actions that drive the system into this regime.`,
+      )
     }
   }
 
@@ -207,7 +219,9 @@ export function formatAgentGuidance(probeReport: Omit<ProbeReport, 'guidance'>):
 
   if (probeReport.status === 'pass') {
     lines.push('')
-    lines.push('All safety invariants, linearizability checks, and Antithesis reachability/sometimes properties passed.')
+    lines.push(
+      'All safety invariants, linearizability checks, and Antithesis reachability/sometimes properties passed.',
+    )
   }
 
   return lines.join('\n')
@@ -245,7 +259,7 @@ export async function probe(options: ProbeOptions, scenario: Scenario): Promise<
       status: 'skipped',
       skippedReason: gate.reason,
       findings: [],
-      unmetProperties: []
+      unmetProperties: [],
     }
     return { ...skipped, guidance: formatAgentGuidance(skipped) }
   }
@@ -254,7 +268,8 @@ export async function probe(options: ProbeOptions, scenario: Scenario): Promise<
   const envMs = process.env.CLOUDFLAKE_PROBE_MS
   const envRuns = process.env.CLOUDFLAKE_PROBE_RUNS
 
-  const replayTemplate = options.replayCommand ?? `CLOUDFLAKE_SEED={seed} CLOUDFLAKE_PROBE=1 node <probe-script>`
+  const replayTemplate =
+    options.replayCommand ?? `CLOUDFLAKE_SEED={seed} CLOUDFLAKE_PROBE=1 node <probe-script>`
   const seed = envSeed !== undefined && envSeed !== '' ? Number(envSeed) : (options.seed ?? 0)
   const runs =
     envSeed !== undefined && envSeed !== ''
@@ -267,7 +282,7 @@ export async function probe(options: ProbeOptions, scenario: Scenario): Promise<
       ? undefined
       : envMs !== undefined && envMs !== ''
         ? Number(envMs)
-        : options.durationMs ?? (runs === undefined ? 5_000 : undefined)
+        : (options.durationMs ?? (runs === undefined ? 5_000 : undefined))
 
   const res = await campaign(
     {
@@ -276,9 +291,9 @@ export async function probe(options: ProbeOptions, scenario: Scenario): Promise<
       runs,
       durationMs,
       onFailure: 'collect',
-      requireProperties: false
+      requireProperties: false,
     },
-    scenario
+    scenario,
   )
 
   const maxMinimize = options.maxMinimize ?? 5
@@ -293,8 +308,12 @@ export async function probe(options: ProbeOptions, scenario: Scenario): Promise<
     if (i < maxMinimize) {
       try {
         const min = await minimizeFaults(
-          { ...options, seed: bucket.firstSeed, traceLimit: Math.max(options.traceLimit ?? 32, 64) },
-          scenario
+          {
+            ...options,
+            seed: bucket.firstSeed,
+            traceLimit: Math.max(options.traceLimit ?? 32, 64),
+          },
+          scenario,
         )
         minimalFaults = min.minimalFaults
         originalFaultCount = min.originalFaults.length
@@ -323,25 +342,21 @@ export async function probe(options: ProbeOptions, scenario: Scenario): Promise<
       originalFaultCount,
       minimalFaults,
       trace,
-      hints: inferFailureHints(bucket.phase, bucket.message, minimalFaults)
+      hints: inferFailureHints(bucket.phase, bucket.message, minimalFaults),
     })
   }
 
   const requireProperties = options.requireProperties ?? true
   const unmetProperties = requireProperties ? res.report.unmetProperties : []
   const status: ProbeReport['status'] =
-    findings.length > 0
-      ? 'fail_safety'
-      : unmetProperties.length > 0
-        ? 'fail_coverage'
-        : 'pass'
+    findings.length > 0 ? 'fail_safety' : unmetProperties.length > 0 ? 'fail_coverage' : 'pass'
 
   const base: Omit<ProbeReport, 'guidance'> = {
     name: options.name,
     status,
     report: res.report,
     findings,
-    unmetProperties
+    unmetProperties,
   }
   const full: ProbeReport = { ...base, guidance: formatAgentGuidance(base) }
 

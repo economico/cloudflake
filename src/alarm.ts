@@ -26,7 +26,7 @@ export function simulatedAlarm(
   sim: Simulation,
   object: string,
   fire: (alarmInfo: AlarmInfo) => void | Promise<void>,
-  options: AlarmOptions = {}
+  options: AlarmOptions = {},
 ) {
   const maxRetries = options.maxRetries ?? 0
   if (!Number.isSafeInteger(maxRetries) || maxRetries < 0) {
@@ -63,7 +63,7 @@ export function simulatedAlarm(
     delay: number,
     label: string,
     run: () => Promise<void>,
-    kind: string
+    kind: string,
   ) => {
     const cancelThis: () => void = sim.after(
       delay,
@@ -72,7 +72,7 @@ export function simulatedAlarm(
         followUps.delete(cancelThis)
         return run()
       },
-      { kind, actor: object }
+      { kind, actor: object },
     )
     followUps.add(cancelThis)
   }
@@ -85,13 +85,16 @@ export function simulatedAlarm(
     } catch (error) {
       // The handler replaced or deleted its own alarm; the failed one is not retried.
       if (gen !== generation) return
-      if (retryCount < maxRetries && sim.recordFault('alarm_retry', `${object} alarm retry ${retryCount + 1}`)) {
+      if (
+        retryCount < maxRetries &&
+        sim.recordFault('alarm_retry', `${object} alarm retry ${retryCount + 1}`)
+      ) {
         const backoff = retryBaseDelayMs * Math.pow(2, retryCount)
         scheduleFollowUp(
           backoff,
           `${object} alarm retry ${retryCount + 1}`,
           () => execute(gen, retryCount + 1),
-          'alarm-retry'
+          'alarm-retry',
         )
         return
       }
@@ -104,7 +107,9 @@ export function simulatedAlarm(
   }
 
   return {
-    async getAlarm() { return at },
+    async getAlarm() {
+      return at
+    },
     async setAlarm(when: number | Date) {
       const timestamp = Number(when)
       if (!Number.isSafeInteger(timestamp) || timestamp < 0) {
@@ -122,24 +127,27 @@ export function simulatedAlarm(
           if (gen !== generation) return
           at = null
           cancel = undefined
-          if (duplicate > 0 && sim.decideFault('alarm_duplicate', duplicate, `${object} alarm`, rng)) {
+          if (
+            duplicate > 0 &&
+            sim.decideFault('alarm_duplicate', duplicate, `${object} alarm`, rng)
+          ) {
             const dupDelay = maxDelay > 0 ? rng.int(maxDelay + 1) : 0
             scheduleFollowUp(
               dupDelay,
               `${object} alarm [duplicate]`,
               () => execute(gen, 0),
-              'alarm-duplicate'
+              'alarm-duplicate',
             )
           }
           await execute(gen, 0)
         },
-        { kind: 'alarm', actor: object }
+        { kind: 'alarm', actor: object },
       )
     },
     async deleteAlarm() {
       cancelAll()
       generation++
       at = null
-    }
+    },
   }
 }
