@@ -44,7 +44,7 @@
     "test:hegel": "npm run build && node --test examples/hegel.test.mjs"
   },
   "peerDependencies": {
-    "miniflare": "^4.20260730.0"
+    "miniflare": "^4.20260730.0 || ^5.0.0-0"
   },
   "peerDependenciesMeta": {
     "miniflare": {

@@ -59,62 +59,67 @@ for any failure the seed, phase, virtual time and cause.
 ## Core API (`cloudflake`)
 
 ```js
-import { simulate, campaign, simulatedQueue, simulatedAlarm, client, SimulationFailure } from 'cloudflake'
+import {
+  simulate, campaign, probe, exploreMultiverse, minimizeFaults,
+  HistoryRecorder, checkLinearizability, formatCampaignReport, formatTrace,
+  simulatedQueue, simulatedAlarm, simulatedKV, simulatedDurableObject,
+  simulatedWaitUntil, simulatedFetch, client, createCheckpointHub,
+  SimulationFailure, PropertyCoverageFailure, ProbeFailure, seedFromEnv
+} from 'cloudflake'
 ```
 
 | Call | Behavior |
 | --- | --- |
-| `simulate(options, scenario)` | Runs one schedule. Resolves `{ seed, steps, time }` or throws `SimulationFailure`. |
-| `campaign({ ...options, runs }, scenario)` | Runs seeds `seed … seed + runs - 1`. Resolves `{ runs, steps }`; throws the first failure. |
-| `sim.after(ms, label, action)` | Schedules `action` at `now + ms` virtual milliseconds. Returns a cancel function. Equal-time events are ordered by the seed. |
-| `sim.deliver(label, action, { maxDelay, drop, duplicate })` | Schedules a delivery with seeded latency `0..maxDelay`, a drop probability, and a probability of one extra delivery. The callback runs again for the duplicate. |
+| `simulate(options, scenario)` | Runs one schedule. Resolves `{ seed, steps, time, assertions, faults, firedFaults }` or throws `SimulationFailure`. |
+| `campaign({ ...options, runs, durationMs, onFailure }, scenario)` | Runs multiple seeds, aggregates Antithesis property coverage (`sometimes`/`reachable`/`always`), and buckets failures when `onFailure: 'collect'`. |
+| `probe({ name, durationMs, replayCommand }, scenario)` | **Local exploratory prober** (auto-skips in CI unless `CLOUDFLAKE_PROBE=1`). Runs longer exploration, buckets failures, runs `minimizeFaults`, and prints structured guidance for coding agents. |
+| `exploreMultiverse(options)` | Antithesis-style coverage-guided snapshot & branching explorer (`sim.cover()`, assertions, faults, and optional V8 branch coverage). |
+| `minimizeFaults(options, scenario)` | Delta-debugs a failing seed to find the minimal subset of injected faults that still reproduces the failure. |
+| `sim.after(ms, label, action)` | Schedules `action` at `now + ms` virtual ms. Returns a cancel function. Equal-time events are ordered by the seed. |
+| `sim.onIdle(label, action)` | Runs once the event calendar drains to quiescence. Prefer this over hardcoded settlement timestamps. |
+| `sim.heal()` / `healAt` | Transitions from chaos to quiescence so retries drain before `onIdle` convergence checks. |
+| `sim.deliver(label, action, policy)` | Schedules delivery with seeded latency (`maxDelay` / `delayDistribution`), zero-step `drop`, `1..maxDuplicates` copies, and `ambiguous` (gray) failures. |
 | `sim.invariant(name, check)` | Runs `check` after setup and after every event. Throw (e.g. `assert`) to fail. |
-| `sim.int(limit)` | Seeded integer in `[0, limit)`. Use for workload choices inside the scenario. |
-| `sim.now`, `sim.steps`, `sim.seed` | Virtual time in ms, events run so far, current seed. |
-| `sim.signal` | `AbortSignal` that aborts parked clients when the run fails. |
+| `sim.always` / `alwaysOrUnreachable` / `sometimes` / `reachable` / `unreachable` | Antithesis-style safety and reachability assertions. `sometimes` and expected `reachable`/`always` fail the campaign with `PropertyCoverageFailure` if never satisfied. |
+| `sim.rng` / `sim.rngStream(name)` / `sim.int(limit)` | 128-bit `xoshiro128++` PRNG with isolated named streams and combinators (`range`, `chance`, `pick`, `shuffle`, `weighted`, `bytes`, `uuid`, `delay`). |
+| `sim.profile` | TigerBeetle VOPR-style swarm fault profile randomized per seed (constrain with `options.swarm`). |
+| `HistoryRecorder` / `checkLinearizability` | Verifies concurrent operation histories (including `indeterminate` ambiguous outcomes) against a pure sequential reference model. |
+| `sim.waitFor(registerWake, label)` | Cooperatively parks an active `client()` on a lock/input-gate and detects deadlocks if the calendar drains while parked. |
+| `sim.cover(edge)` | Records a state/branch coverage edge for `exploreMultiverse`. |
 
-Options: `seed` (uint32, required), `startTime` (ms, default `0`), `maxSteps`
-(default `100000`; exceeding it fails the run), `traceLimit` (steps kept on the
-failure, default `32`), `onStep(step)` (called with `{ id, time, label }`).
-
-Helpers:
-
-- `simulatedQueue(sim, name, consumer, { maxRetries = 3, retryDelaySeconds = 0, duplicate = 0, onExhausted })`
-  returns `{ send(body, { delaySeconds }), sendBatch(messages, options) }`. The
-  consumer receives `{ queue, messages: [message], ackAll, retryAll }` with exactly
-  one message per batch. A message has a stable `id`, `timestamp`, `attempts`,
-  a `structuredClone`d `body`, `ack()` and `retry({ delaySeconds })`. Returning
-  without a decision acks. Throwing retries. After `maxRetries` retries the run
-  fails unless `onExhausted(message)` is supplied. Duplicated deliveries keep the
-  same `id`, as Cloudflare's at-least-once delivery can.
-- `simulatedAlarm(sim, objectName, fire)` returns `{ getAlarm, setAlarm, deleteAlarm }`
-  with one replaceable slot. Times are absolute virtual ms, so pass
-  `sim.now + delay`. Inject it in place of `ctx.storage` alarm methods.
-- `client(sim, name, async checkpoint => { … })` runs a sequential client that
-  yields at `await checkpoint(delayMs, label)`. Other events, including other
-  clients, run while it is parked. Use this to interleave two requests *inside*
-  their I/O, which plain events cannot do.
+Cloudflare in-process simulators:
+- `simulatedQueue(sim, name, consumer, { maxBatchSize, maxBatchTimeoutMs, maxDelay, maxRetries, retryDelaySeconds, duplicate, maxDuplicates, deadLetterQueue, onExhausted })`: multi-message batching, partial batch `ack`/`retry`, reordering, duplicates, and DLQ.
+- `simulatedAlarm(sim, objectName, fire, { maxRetries, retryBaseDelayMs, duplicate, maxDelay })`: passes `{ retryCount, isRetry }`, retries with exponential backoff on throw, and supports at-least-once duplicates and jitter.
+- `simulatedKV(sim, name, { propagationDelayMs, staleRead, errorRate })`: eventual consistency stale reads, tombstones, virtual-time TTLs, and strongly consistent `.inspect(key)`.
+- `simulatedDurableObject(sim, name, factory, { alarm, rpcReset, rpcAmbiguous, evictBeforeCall, evictAfterCall, clockSkewMs })`: durable transactional storage vs ephemeral instance memory across `evict()` / `ctx.abort()`, cooperative `blockConcurrencyWhile` input gates, and ambiguous RPC resets.
+- `simulatedWaitUntil(sim, { drop, maxDelay })` & `simulatedFetch(sim, handler, { errorRate, timeoutRate, ambiguousRate })`.
+- `client(sim, name, task)` & `createCheckpointHub(sim)`: cooperative clients with request-header (`x-cloudflake-client`) checkpoint routing and deadlock detection.
 
 ## Workers adapter (`cloudflake/miniflare`)
 
 ```js
-import { simulateWorkers, workerQueue } from 'cloudflake/miniflare'
-
-await simulateWorkers({ seed }, sim => miniflareOptions, async (sim, runtime) => { … })
+import {
+  simulateWorkers, campaignWorkers, probeWorkers, workerQueue,
+  createBindingProxies, controlServiceBinding, createVirtualRuntimeModule,
+  outboundFaultService, doNemesis, snapshotPersistDir
+} from 'cloudflake/miniflare'
 ```
 
-- The second argument is a factory returning normal `MiniflareOptions`, including
-  `workers: [...]` for multi-Worker deployments. It receives `sim`, so test
-  doubles can read `sim.now` or `sim.int`.
-- A fresh Miniflare is created and disposed for every run. Do not set
-  persistence directories or remote bindings; state must start empty each seed.
-- `runtime` is the Miniflare instance: `dispatchFetch`, `getKVNamespace`,
-  `getR2Bucket`, `getD1Database`, `getWorker`, `unsafeEvictDurableObject`, etc.
-  Pass the Worker name as the second argument in multi-Worker setups.
-- `await workerQueue(sim, runtime, workerName, queueName, options)` returns a
-  producer that drives the Worker's real `queue()` handler on the virtual
-  calendar and honors its `ack`/`retry` response, including `delaySeconds`.
-- Build or bundle the Worker once outside the campaign and reuse `scriptPath`.
+- `simulateWorkers` / `campaignWorkers`: run single or parallel (`concurrency`) `workerd` runs with aggregated Antithesis property reports.
+- `probeWorkers`: local exploratory `workerd` prober (auto-skips in CI by default) with fault minimization and agent-ready failure guidance.
+- `createBindingProxies(sim, { queues, kv, durableObjects })`: drop-in `WorkerEntrypoint`/`RpcTarget` proxies so real Workers calling `env.MY_QUEUE.send()`, `env.MY_KV.get/put()`, and `env.MY_DO.getByName().fetch()` (plus JS RPC methods listed in `durableObjects[binding].rpcMethods`) get virtual-time queues, KV stale reads, and DO RPC reset/ambiguous faults with zero app code changes.
+- `controlServiceBinding(sim)` + `createVirtualRuntimeModule()`: syncs `Date.now()`, `Math.random()`, `crypto.randomUUID()`, `ctx.waitUntil(() => task())` drops (factories only; a passed Promise is already running), real DO `ctx.storage` alarms, and `cloudflakeAssert(env)` inside `workerd` onto Cloudflake's virtual calendar.
+- `outboundFaultService(sim, handler, { hub, errorRate, timeoutRate, ambiguousRate })`: drop-in Miniflare `outboundService` for outbound `fetch()` faults and `CheckpointHub` interleaving.
+- `doNemesis(sim, runtime, targets, options)`: seeded `unsafeEvictDurableObject` chaos actor with `sometimes('do evicted')` coverage.
+- `snapshotPersistDir(persistDir)`: clone SQLite/KV/R2/DO persistence directories for midpoint multiverse branching.
+
+## Local exploratory probing for coding agents
+
+Keep CI tests fast with small fixed seed counts. Put longer TigerBeetle/Antithesis-style probing in dedicated scripts using `probe()` or `probeWorkers()`:
+
+- Automatically skips in CI (`CI=true`) unless `CLOUDFLAKE_PROBE=1` is set.
+- Override locally with `CLOUDFLAKE_PROBE_MS=30000`, `CLOUDFLAKE_PROBE_RUNS=2000`, or replay one failing seed with `CLOUDFLAKE_SEED=<seed>`.
+- On failure, Cloudflake collects all distinct failure buckets, delta-debugs the injected faults down to the minimal trigger, and prints a replay command, minimal faults, causal trace, and diagnostic hints directly for you to act on.
 
 ## Rules that keep replay exact
 
