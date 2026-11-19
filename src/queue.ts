@@ -49,13 +49,14 @@ export function simulatedQueue<T>(
   sim: Simulation,
   queue: string,
   consume: Consumer<T>,
-  options: QueueOptions<T> = {}
+  options: QueueOptions<T> = {},
 ) {
   let sequence = 0
   const limit = options.maxRetries ?? 3
   if (!Number.isSafeInteger(limit) || limit < 0) throw new RangeError('invalid maxRetries')
   const maxBatchSize = options.maxBatchSize ?? 1
-  if (!Number.isSafeInteger(maxBatchSize) || maxBatchSize < 1) throw new RangeError('invalid maxBatchSize')
+  if (!Number.isSafeInteger(maxBatchSize) || maxBatchSize < 1)
+    throw new RangeError('invalid maxBatchSize')
   const maxBatchTimeoutMs = options.maxBatchTimeoutMs ?? 0
   if (!Number.isSafeInteger(maxBatchTimeoutMs) || maxBatchTimeoutMs < 0) {
     throw new RangeError('invalid maxBatchTimeoutMs')
@@ -78,7 +79,7 @@ export function simulatedQueue<T>(
   let cancelFlush: (() => void) | undefined
 
   const deliverBatch = async (items: PendingItem<T>[]) => {
-    const states = items.map(item => {
+    const states = items.map((item) => {
       let decision: 'ack' | 'retry' | undefined
       let nextDelay = retryDelay
       const message: Delivery<T> = {
@@ -86,27 +87,40 @@ export function simulatedQueue<T>(
         timestamp: new Date(item.timestamp),
         attempts: item.attempts,
         body: structuredClone(item.body),
-        ack() { decision ??= 'ack' },
+        ack() {
+          decision ??= 'ack'
+        },
         retry(details) {
           if (decision) return
-          nextDelay = details?.delaySeconds === undefined ? retryDelay : millis(details.delaySeconds)
+          nextDelay =
+            details?.delaySeconds === undefined ? retryDelay : millis(details.delaySeconds)
           decision = 'retry'
-        }
+        },
       }
       return {
         item,
         message,
-        get decision() { return decision },
-        set decision(d: 'ack' | 'retry' | undefined) { decision = d },
-        get nextDelay() { return nextDelay }
+        get decision() {
+          return decision
+        },
+        set decision(d: 'ack' | 'retry' | undefined) {
+          decision = d
+        },
+        get nextDelay() {
+          return nextDelay
+        },
       }
     })
 
     const batch: QueueBatch<T> = {
       queue,
-      messages: states.map(s => s.message),
-      ackAll() { for (const s of states) s.message.ack() },
-      retryAll(opts) { for (const s of states) s.message.retry(opts) }
+      messages: states.map((s) => s.message),
+      ackAll() {
+        for (const s of states) s.message.ack()
+      },
+      retryAll(opts) {
+        for (const s of states) s.message.retry(opts)
+      },
     }
 
     let thrown: unknown
@@ -126,13 +140,13 @@ export function simulatedQueue<T>(
       if (s.item.attempts <= limit) {
         const nextItem: PendingItem<T> = {
           ...s.item,
-          attempts: s.item.attempts + 1
+          attempts: s.item.attempts + 1,
         }
         sim.after(
           s.nextDelay,
           `${s.item.id} retry ${nextItem.attempts}`,
           () => deliverBatch([nextItem]),
-          { kind: 'queue-retry', actor: queue }
+          { kind: 'queue-retry', actor: queue },
         )
       } else if (options.deadLetterQueue) {
         await options.deadLetterQueue.send(structuredClone(s.item.body))
@@ -149,12 +163,13 @@ export function simulatedQueue<T>(
     cancelFlush = undefined
     if (buffer.length === 0) return
     const batch = buffer.splice(0, maxBatchSize)
-    const label = batch.length === 1 ? batch[0]!.id : `${queue} batch(${batch.map(b => b.id).join(',')})`
+    const label =
+      batch.length === 1 ? batch[0]!.id : `${queue} batch(${batch.map((b) => b.id).join(',')})`
     sim.deliver(label, () => deliverBatch(batch), {
       duplicate,
       maxDuplicates,
       maxDelay,
-      actor: queue
+      actor: queue,
     })
     if (buffer.length > 0) scheduleFlush()
   }
@@ -167,7 +182,7 @@ export function simulatedQueue<T>(
     if (!cancelFlush) {
       cancelFlush = sim.after(maxBatchTimeoutMs, `${queue} flush`, flushBuffer, {
         kind: 'queue-flush',
-        actor: queue
+        actor: queue,
       })
     }
   }
@@ -180,8 +195,14 @@ export function simulatedQueue<T>(
       sim.after(
         delay,
         id + ' ready',
-        () => sim.deliver(id, () => deliverBatch([item]), { duplicate, maxDuplicates, maxDelay, actor: queue }),
-        { kind: 'queue-ready', actor: queue }
+        () =>
+          sim.deliver(id, () => deliverBatch([item]), {
+            duplicate,
+            maxDuplicates,
+            maxDelay,
+            actor: queue,
+          }),
+        { kind: 'queue-ready', actor: queue },
       )
     } else {
       sim.after(
@@ -191,7 +212,7 @@ export function simulatedQueue<T>(
           buffer.push(item)
           scheduleFlush()
         },
-        { kind: 'queue-ready', actor: queue }
+        { kind: 'queue-ready', actor: queue },
       )
     }
   }
@@ -201,11 +222,11 @@ export function simulatedQueue<T>(
       enqueue(structuredClone(body), millis(sendOptions?.delaySeconds))
     },
     async sendBatch(messages: { body: T; delaySeconds?: number }[], sendOptions?: SendOptions) {
-      const batch = messages.map(m => ({
+      const batch = messages.map((m) => ({
         body: structuredClone(m.body),
-        delay: millis(m.delaySeconds ?? sendOptions?.delaySeconds)
+        delay: millis(m.delaySeconds ?? sendOptions?.delaySeconds),
       }))
       for (const m of batch) enqueue(m.body, m.delay)
-    }
+    },
   }
 }

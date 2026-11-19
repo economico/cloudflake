@@ -6,7 +6,7 @@ async function measure(seed, events) {
   let dispatched = 0
   let allocated = 0
   const start = performance.now()
-  const result = await simulate({ seed, maxSteps: events, traceLimit: 32 }, sim => {
+  const result = await simulate({ seed, maxSteps: events, traceLimit: 32 }, (sim) => {
     const action = () => {
       dispatched++
       if (allocated < events) add()
@@ -20,10 +20,17 @@ async function measure(seed, events) {
   const elapsed = performance.now() - start
   assert.equal(dispatched, events)
   assert.equal(result.steps, events)
-  return Math.round(events * 1000 / elapsed)
+  return Math.round((events * 1000) / elapsed)
 }
 await measure(0, 100_000)
 const rates = []
 for (let i = 1; i <= 5; i++) rates.push(await measure(i, total))
-console.log(JSON.stringify({ node: process.version, eventsPerTrial: total, pending: width,
-  rates, medianStepsPerSecond: [...rates].sort((a,b) => a-b)[2] }))
+console.log(
+  JSON.stringify({
+    node: process.version,
+    eventsPerTrial: total,
+    pending: width,
+    rates,
+    medianStepsPerSecond: [...rates].sort((a, b) => a - b)[2],
+  }),
+)

@@ -1,7 +1,12 @@
 {
   "compilerOptions": {
-    "target": "ES2024", "module": "NodeNext", "strict": true,
-    "declaration": true, "outDir": "dist", "skipLibCheck": true,
+    "target": "ES2024",
+    "module": "NodeNext",
+    "strict": true,
+    "declaration": true,
+    "rootDir": "src",
+    "outDir": "dist",
+    "skipLibCheck": true,
     "noUncheckedIndexedAccess": true
   },
   "include": ["src"]

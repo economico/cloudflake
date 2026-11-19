@@ -1,11 +1,7 @@
 // Coverage-guided multiverse exploration (Antithesis-style snapshot + branching)
 // plus optional V8 precise branch coverage via Node's built-in inspector.
 import { Session } from 'node:inspector/promises'
-import {
-  CampaignCollector,
-  PropertyCoverageFailure,
-  type CampaignReport
-} from './assertions.js'
+import { CampaignCollector, PropertyCoverageFailure, type CampaignReport } from './assertions.js'
 import { Simulation, SimulationFailure, type Options } from './index.js'
 import { Prng } from './prng.js'
 
@@ -23,7 +19,7 @@ const defaultUrlFilter = (url: string) =>
  */
 export async function withV8Coverage<T>(
   fn: () => Promise<T>,
-  options: V8CoverageOptions = {}
+  options: V8CoverageOptions = {},
 ): Promise<{ result: T; edges: string[] }> {
   const filter = options.urlFilter ?? defaultUrlFilter
   const session = new Session()
@@ -112,7 +108,7 @@ type CorpusEntry<Snapshot> = {
  * corpus so future seeds branch directly from that newly unlocked state.
  */
 export async function exploreMultiverse<Snapshot>(
-  options: MultiverseOptions<Snapshot>
+  options: MultiverseOptions<Snapshot>,
 ): Promise<MultiverseResult> {
   if (options.runs === undefined && options.durationMs === undefined) {
     throw new RangeError('exploreMultiverse requires either runs or durationMs')
@@ -143,12 +139,12 @@ export async function exploreMultiverse<Snapshot>(
       if (i > 0 && performance.now() - startedAt >= durationMs) break
 
       // Pick a parent snapshot: bias toward less-used, higher-novelty states (and occasionally root)
-      const eligible = corpus.filter(c => c.depth < maxDepth)
+      const eligible = corpus.filter((c) => c.depth < maxDepth)
       const parent =
         eligible.length === 0 || (i > 0 && selector.chance(0.2))
           ? corpus[0]!
           : selector.weighted(
-              eligible.map(c => [Math.max(1, c.novelty) / (1 + c.uses * 0.5), c] as const)
+              eligible.map((c) => [Math.max(1, c.novelty) / (1 + c.uses * 0.5), c] as const),
             )
       parent.uses++
 
@@ -158,7 +154,7 @@ export async function exploreMultiverse<Snapshot>(
       let promoted = false
 
       try {
-        const execEpisode = () => sim.run(s => options.step(s, branchState, parent.depth + 1))
+        const execEpisode = () => sim.run((s) => options.step(s, branchState, parent.depth + 1))
         let result
         let extraEdges: string[] = []
         if (options.v8Coverage) {
@@ -193,7 +189,7 @@ export async function exploreMultiverse<Snapshot>(
             depth: nextDepth,
             discoveredBySeed: branchSeed,
             novelty: newEdges,
-            uses: 0
+            uses: 0,
           })
           // Evict lowest-novelty non-root entry if corpus exceeds maxSnapshots
           if (corpus.length > maxSnapshots) {
@@ -240,6 +236,6 @@ export async function exploreMultiverse<Snapshot>(
     uniqueEdges: globalEdges.size,
     snapshotsCreated,
     maxDepthReached,
-    report
+    report,
   }
 }

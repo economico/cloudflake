@@ -11,25 +11,37 @@ evicted mid-run.
 ```js
 import { simulateWorkers } from 'cloudflake/miniflare'
 
-await simulateWorkers({ seed }, () => ({
-  name: 'counter', modules: true, script, compatibilityDate: '2026-07-01',
-  unsafeInspectDurableObjects: true,
-  durableObjects: { COUNTERS: { className: 'Counter', useSQLite: true } }
-}), async (sim, runtime) => {
-  const url = 'https://counter.test/'
-  for (const id of ['a', 'b', 'c']) {
-    sim.deliver('increment ' + id, async () => {
-      const response = await runtime.dispatchFetch(url, { method: 'POST', body: id })
-      assert.equal(response.status, 200)
-      await response.json()
-    }, { maxDelay: 5, duplicate: 1 })
-  }
-  sim.after(sim.int(6), 'evict counter', () =>
-    runtime.unsafeEvictDurableObject('counter', 'Counter', { name: 'shared' }))
-  sim.after(6, 'each increment counted once', async () => {
-    assert.equal(await (await runtime.dispatchFetch(url)).json(), 3)
-  })
-})
+await simulateWorkers(
+  { seed },
+  () => ({
+    name: 'counter',
+    modules: true,
+    script,
+    compatibilityDate: '2026-07-01',
+    unsafeInspectDurableObjects: true,
+    durableObjects: { COUNTERS: { className: 'Counter', useSQLite: true } },
+  }),
+  async (sim, runtime) => {
+    const url = 'https://counter.test/'
+    for (const id of ['a', 'b', 'c']) {
+      sim.deliver(
+        'increment ' + id,
+        async () => {
+          const response = await runtime.dispatchFetch(url, { method: 'POST', body: id })
+          assert.equal(response.status, 200)
+          await response.json()
+        },
+        { maxDelay: 5, duplicate: 1 },
+      )
+    }
+    sim.after(sim.int(6), 'evict counter', () =>
+      runtime.unsafeEvictDurableObject('counter', 'Counter', { name: 'shared' }),
+    )
+    sim.after(6, 'each increment counted once', async () => {
+      assert.equal(await (await runtime.dispatchFetch(url)).json(), 3)
+    })
+  },
+)
 ```
 
 The Worker deduplicates with `INSERT OR IGNORE` on the request id. Replace it
@@ -52,20 +64,30 @@ const script = `export default { async fetch(req, env) {
 } }`
 
 const gates = new Map()
-await simulateWorkers({ seed }, () => ({
-  script, modules: true, compatibilityDate: '2026-07-01', kvNamespaces: ['KV'],
-  serviceBindings: { CHECKPOINT: async req => {
-    await gates.get(new URL(req.url).pathname)(1, 'after reading count')
-    return new Response()
-  } }
-}), async (sim, runtime) => {
-  for (const path of ['/a', '/b']) client(sim, path, async checkpoint => {
-    gates.set(path, checkpoint)
-    assert.equal(await (await runtime.dispatchFetch('https://test' + path)).text(), 'ok')
-  })
-  const kv = await runtime.getKVNamespace('KV')
-  sim.after(2, 'both increments persisted', async () => assert.equal(await kv.get('count'), '2'))
-})
+await simulateWorkers(
+  { seed },
+  () => ({
+    script,
+    modules: true,
+    compatibilityDate: '2026-07-01',
+    kvNamespaces: ['KV'],
+    serviceBindings: {
+      CHECKPOINT: async (req) => {
+        await gates.get(new URL(req.url).pathname)(1, 'after reading count')
+        return new Response()
+      },
+    },
+  }),
+  async (sim, runtime) => {
+    for (const path of ['/a', '/b'])
+      client(sim, path, async (checkpoint) => {
+        gates.set(path, checkpoint)
+        assert.equal(await (await runtime.dispatchFetch('https://test' + path)).text(), 'ok')
+      })
+    const kv = await runtime.getKVNamespace('KV')
+    sim.after(2, 'both increments persisted', async () => assert.equal(await kv.get('count'), '2'))
+  },
+)
 ```
 
 In production code, keep the checkpoint binding out of the deployed
@@ -76,18 +98,25 @@ configuration, or make it a no-op service there.
 ```js
 import { simulateWorkers, workerQueue } from 'cloudflake/miniflare'
 
-await simulateWorkers({ seed }, () => ({
-  name: 'consumer', modules: true, compatibilityDate: '2026-07-01',
-  d1Databases: ['DB'], scriptPath: './build/consumer.mjs'
-}), async (sim, runtime) => {
-  const db = await runtime.getD1Database('DB')
-  await db.exec('CREATE TABLE inbox (id TEXT PRIMARY KEY, value INTEGER)')
-  const queue = await workerQueue(sim, runtime, 'consumer', 'effects', { duplicate: 0.5 })
-  await queue.send({ value: 12 })
-  sim.after(60_001, 'committed once', async () => {
-    assert.equal(await db.prepare('SELECT count(*) AS n FROM inbox').first('n'), 1)
-  })
-})
+await simulateWorkers(
+  { seed },
+  () => ({
+    name: 'consumer',
+    modules: true,
+    compatibilityDate: '2026-07-01',
+    d1Databases: ['DB'],
+    scriptPath: './build/consumer.mjs',
+  }),
+  async (sim, runtime) => {
+    const db = await runtime.getD1Database('DB')
+    await db.exec('CREATE TABLE inbox (id TEXT PRIMARY KEY, value INTEGER)')
+    const queue = await workerQueue(sim, runtime, 'consumer', 'effects', { duplicate: 0.5 })
+    await queue.send({ value: 12 })
+    sim.after(60_001, 'committed once', async () => {
+      assert.equal(await db.prepare('SELECT count(*) AS n FROM inbox').first('n'), 1)
+    })
+  },
+)
 ```
 
 `m.retry({ delaySeconds: 60 })` inside the handler moves the next attempt 60,000
@@ -101,19 +130,21 @@ in `simulatedAlarm` and an in-memory map. `ReminderLogic` stands for your own cl
 ```js
 import { simulate, simulatedAlarm } from 'cloudflake'
 
-await simulate({ seed }, async sim => {
-  const storage = new Map()                         // durable state survives "restarts"
+await simulate({ seed }, async (sim) => {
+  const storage = new Map() // durable state survives "restarts"
   let instance
   const alarm = simulatedAlarm(sim, 'reminder', () => instance.alarm())
-  const boot = () => { instance = new ReminderLogic({ storage, alarm, now: () => sim.now }) }
+  const boot = () => {
+    instance = new ReminderLogic({ storage, alarm, now: () => sim.now })
+  }
   boot()
   await instance.schedule('invoice-17', 5_000)
-  sim.after(sim.int(5_000), 'restart', boot)        // new instance, same storage and alarm slot
+  sim.after(sim.int(5_000), 'restart', boot) // new instance, same storage and alarm slot
   sim.after(5_001, 'reminder sent once', () => assert.equal(storage.get('sent:invoice-17'), 1))
 })
 ```
 
-Resolve the *current* instance inside `fire`, as above, so an alarm after a
+Resolve the _current_ instance inside `fire`, as above, so an alarm after a
 restart reaches the new object.
 
 ## Injecting time and ids
@@ -124,7 +155,7 @@ Pass them in:
 ```js
 const deps = {
   now: () => sim.now,
-  id: () => 'id-' + sim.int(2 ** 32).toString(16)
+  id: () => 'id-' + sim.int(2 ** 32).toString(16),
 }
 ```
 
@@ -151,11 +182,13 @@ Replay requires the same code, inputs, dependency versions and options
 When the test itself is the deliverable, prove it detects the broken variant:
 
 ```js
-const failure = await campaign({ seed: 0, runs: 64 }, brokenScenario)
-  .then(() => assert.fail('race undetected'), e => e)
+const failure = await campaign({ seed: 0, runs: 64 }, brokenScenario).then(
+  () => assert.fail('race undetected'),
+  (e) => e,
+)
 assert.equal(failure.phase, 'both increments committed')
-await assert.rejects(simulate({ seed: failure.seed }, brokenScenario), e => {
-  assert.deepEqual(e.trace, failure.trace)          // same schedule on replay
+await assert.rejects(simulate({ seed: failure.seed }, brokenScenario), (e) => {
+  assert.deepEqual(e.trace, failure.trace) // same schedule on replay
   return true
 })
 ```

@@ -5,14 +5,10 @@ import {
   Miniflare,
   Response as MiniflareResponse,
   type MiniflareOptions,
-  type Request as MiniflareRequest
+  type Request as MiniflareRequest,
 } from 'miniflare'
 import { simulatedAlarm, type AlarmInfo, type AlarmOptions } from './alarm.js'
-import {
-  CampaignCollector,
-  PropertyCoverageFailure,
-  type CampaignReport
-} from './assertions.js'
+import { CampaignCollector, PropertyCoverageFailure, type CampaignReport } from './assertions.js'
 import type { CheckpointHub } from './client.js'
 import { simulatedKV, type SimulatedKVOptions } from './cloudflare.js'
 import {
@@ -24,7 +20,7 @@ import {
   type FaultEvent,
   type Options,
   type SimulationResult,
-  type Step
+  type Step,
 } from './index.js'
 import {
   ProbeFailure,
@@ -33,7 +29,7 @@ import {
   shouldRunProbe,
   type ProbeFinding,
   type ProbeOptions,
-  type ProbeReport
+  type ProbeReport,
 } from './probe.js'
 import { simulatedQueue, type QueueOptions } from './queue.js'
 
@@ -42,11 +38,11 @@ import { simulatedQueue, type QueueOptions } from './queue.js'
 export async function simulateWorkers(
   options: Options,
   deployment: (sim: Simulation) => MiniflareOptions,
-  scenario: (sim: Simulation, runtime: Miniflare) => void | Promise<void>
+  scenario: (sim: Simulation, runtime: Miniflare) => void | Promise<void>,
 ): Promise<SimulationResult> {
   let runtime: Miniflare | undefined
   try {
-    return await simulate(options, async sim => {
+    return await simulate(options, async (sim) => {
       runtime = new Miniflare({ cf: false, ...deployment(sim) })
       await runtime.ready
       await scenario(sim, runtime)
@@ -67,7 +63,9 @@ export type CampaignWorkersOptions = CampaignOptions & {
  */
 function integerOption(name: string, value: number, min: number) {
   if (!Number.isSafeInteger(value) || value < min) {
-    throw new RangeError(`campaignWorkers ${name}: expected an integer >= ${min}, received ${value}`)
+    throw new RangeError(
+      `campaignWorkers ${name}: expected an integer >= ${min}, received ${value}`,
+    )
   }
   return value
 }
@@ -75,13 +73,15 @@ function integerOption(name: string, value: number, min: number) {
 export async function campaignWorkers(
   options: CampaignWorkersOptions,
   deployment: (sim: Simulation) => MiniflareOptions,
-  scenario: (sim: Simulation, runtime: Miniflare) => void | Promise<void>
+  scenario: (sim: Simulation, runtime: Miniflare) => void | Promise<void>,
 ): Promise<CampaignResult> {
   if (options.runs === undefined && options.durationMs === undefined) {
     throw new RangeError('campaignWorkers requires either runs or durationMs')
   }
-  const maxRuns = options.runs === undefined ? Number.MAX_SAFE_INTEGER : integerOption('runs', options.runs, 1)
-  const durationMs = options.durationMs === undefined ? Infinity : integerOption('durationMs', options.durationMs, 1)
+  const maxRuns =
+    options.runs === undefined ? Number.MAX_SAFE_INTEGER : integerOption('runs', options.runs, 1)
+  const durationMs =
+    options.durationMs === undefined ? Infinity : integerOption('durationMs', options.durationMs, 1)
   integerOption('seed', options.seed, 0)
   const concurrency = Math.max(1, Math.floor(options.concurrency ?? 1))
   const onFailure = options.onFailure ?? 'stop'
@@ -101,7 +101,7 @@ export async function campaignWorkers(
     let runtime: Miniflare | undefined
     const sim = new Simulation({ ...options, seed })
     try {
-      const result = await sim.run(async s => {
+      const result = await sim.run(async (s) => {
         runtime = new Miniflare({ cf: false, ...deployment(s) })
         await runtime.ready
         await scenario(s, runtime)
@@ -153,7 +153,7 @@ export async function workerQueue<T>(
   runtime: Miniflare,
   workerName: string,
   queueName: string,
-  options?: QueueOptions<T>
+  options?: QueueOptions<T>,
 ) {
   const worker = await runtime.getWorker(workerName)
   return simulatedQueue<T>(
@@ -164,7 +164,7 @@ export async function workerQueue<T>(
         id,
         timestamp,
         attempts,
-        body
+        body,
       }))
       const response = await worker.queue(queueName, payload)
       for (const message of messages) {
@@ -173,16 +173,16 @@ export async function workerQueue<T>(
           continue
         }
         const retry = response.retryMessages.find(
-          (entry: { msgId: string }) => entry.msgId === message.id
+          (entry: { msgId: string }) => entry.msgId === message.id,
         )
         if (retry || response.retryBatch.retry || response.outcome !== 'ok') {
           message.retry({
-            delaySeconds: retry?.delaySeconds ?? response.retryBatch.delaySeconds
+            delaySeconds: retry?.delaySeconds ?? response.retryBatch.delaySeconds,
           })
         }
       }
     },
-    options
+    options,
   )
 }
 
@@ -216,8 +216,10 @@ export type OutboundFaultOptions = {
  */
 export function outboundFaultService(
   sim: Simulation,
-  handler: (request: MiniflareRequest) => Response | MiniflareResponse | Promise<Response | MiniflareResponse>,
-  options: OutboundFaultOptions = {}
+  handler: (
+    request: MiniflareRequest,
+  ) => Response | MiniflareResponse | Promise<Response | MiniflareResponse>,
+  options: OutboundFaultOptions = {},
 ) {
   const rng = sim.rngStream('miniflare-outbound')
   const errorRate = options.errorRate ?? 0
@@ -240,7 +242,7 @@ export function outboundFaultService(
     if (timeoutRate > 0 && sim.decideFault('outbound_timeout', timeoutRate, label, rng)) {
       return new MiniflareResponse(`outbound fetch timeout: ${label}`, {
         status: faultStatus,
-        headers: { 'x-cloudflake-fault': 'timeout' }
+        headers: { 'x-cloudflake-fault': 'timeout' },
       })
     }
     if (errorRate > 0 && sim.decideFault('outbound_error', errorRate, label, rng)) {
@@ -254,7 +256,7 @@ export function outboundFaultService(
       await res.body?.cancel?.()
       return new MiniflareResponse(`outbound connection lost after remote execution: ${label}`, {
         status: faultStatus,
-        headers: { 'x-cloudflake-fault': 'ambiguous' }
+        headers: { 'x-cloudflake-fault': 'ambiguous' },
       })
     }
 
@@ -263,7 +265,7 @@ export function outboundFaultService(
     return new MiniflareResponse(body, {
       status: res.status,
       statusText: res.statusText,
-      headers: Object.fromEntries(res.headers.entries())
+      headers: Object.fromEntries(res.headers.entries()),
     })
   }
 }
@@ -300,10 +302,10 @@ export function controlServiceBinding(sim: Simulation, options: ControlBindingOp
       slot = simulatedAlarm(
         sim,
         objectKey,
-        async info => {
+        async (info) => {
           if (options.onAlarmFire) await options.onAlarmFire(objectKey, info)
         },
-        options.alarm
+        options.alarm,
       )
       alarmSlots.set(objectKey, slot)
     }
@@ -316,10 +318,10 @@ export function controlServiceBinding(sim: Simulation, options: ControlBindingOp
       const payload = {
         now: Math.max(0, sim.now + clockSkewMs),
         seed: rng.nextUint32(),
-        chaosEnabled: sim.chaosEnabled
+        chaosEnabled: sim.chaosEnabled,
       }
       return new MiniflareResponse(JSON.stringify(payload), {
-        headers: { 'content-type': 'application/json' }
+        headers: { 'content-type': 'application/json' },
       })
     }
 
@@ -332,8 +334,10 @@ export function controlServiceBinding(sim: Simulation, options: ControlBindingOp
       }
       try {
         if (body.kind === 'always') sim.always(body.name, Boolean(body.condition), body.details)
-        else if (body.kind === 'alwaysOrUnreachable') sim.alwaysOrUnreachable(body.name, Boolean(body.condition), body.details)
-        else if (body.kind === 'sometimes') sim.sometimes(body.name, Boolean(body.condition), body.details)
+        else if (body.kind === 'alwaysOrUnreachable')
+          sim.alwaysOrUnreachable(body.name, Boolean(body.condition), body.details)
+        else if (body.kind === 'sometimes')
+          sim.sometimes(body.name, Boolean(body.condition), body.details)
         else if (body.kind === 'reachable') sim.reachable(body.name, body.details)
         else if (body.kind === 'unreachable') sim.unreachable(body.name, body.details)
       } catch (err) {
@@ -341,11 +345,11 @@ export function controlServiceBinding(sim: Simulation, options: ControlBindingOp
         sim._failDeferred(err)
         return new MiniflareResponse(
           JSON.stringify({ ok: false, error: err instanceof Error ? err.message : String(err) }),
-          { status: 400, headers: { 'content-type': 'application/json' } }
+          { status: 400, headers: { 'content-type': 'application/json' } },
         )
       }
       return new MiniflareResponse(JSON.stringify({ ok: true }), {
-        headers: { 'content-type': 'application/json' }
+        headers: { 'content-type': 'application/json' },
       })
     }
 
@@ -353,7 +357,7 @@ export function controlServiceBinding(sim: Simulation, options: ControlBindingOp
       const body = (await request.json()) as { edge: string }
       sim.cover(body.edge)
       return new MiniflareResponse(JSON.stringify({ ok: true }), {
-        headers: { 'content-type': 'application/json' }
+        headers: { 'content-type': 'application/json' },
       })
     }
 
@@ -363,7 +367,7 @@ export function controlServiceBinding(sim: Simulation, options: ControlBindingOp
         waitUntilDrop > 0 &&
         sim.decideFault('waituntil_drop', waitUntilDrop, body.label ?? 'waitUntil', rng)
       return new MiniflareResponse(JSON.stringify({ drop }), {
-        headers: { 'content-type': 'application/json' }
+        headers: { 'content-type': 'application/json' },
       })
     }
 
@@ -371,7 +375,7 @@ export function controlServiceBinding(sim: Simulation, options: ControlBindingOp
       const key = url.searchParams.get('key') ?? 'default'
       const at = await getAlarmSlot(key).getAlarm()
       return new MiniflareResponse(JSON.stringify({ at }), {
-        headers: { 'content-type': 'application/json' }
+        headers: { 'content-type': 'application/json' },
       })
     }
 
@@ -379,7 +383,7 @@ export function controlServiceBinding(sim: Simulation, options: ControlBindingOp
       const body = (await request.json()) as { key: string; when: number }
       await getAlarmSlot(body.key).setAlarm(body.when)
       return new MiniflareResponse(JSON.stringify({ ok: true }), {
-        headers: { 'content-type': 'application/json' }
+        headers: { 'content-type': 'application/json' },
       })
     }
 
@@ -387,7 +391,7 @@ export function controlServiceBinding(sim: Simulation, options: ControlBindingOp
       const body = (await request.json()) as { key: string }
       await getAlarmSlot(body.key).deleteAlarm()
       return new MiniflareResponse(JSON.stringify({ ok: true }), {
-        headers: { 'content-type': 'application/json' }
+        headers: { 'content-type': 'application/json' },
       })
     }
 
@@ -613,7 +617,7 @@ export function doNemesis(
   sim: Simulation,
   runtime: Miniflare,
   targets: readonly DurableObjectTarget[],
-  options: DONemesisOptions = {}
+  options: DONemesisOptions = {},
 ) {
   if (targets.length === 0) return
   const ticks = options.ticks ?? 4
@@ -633,7 +637,7 @@ export function doNemesis(
           'do_evict',
           prob,
           `${target.className}/${targetLabel}`,
-          rng
+          rng,
         )
         if (!shouldTry) {
           sim.sometimes('do evicted', false, { className: target.className, target: targetLabel })
@@ -645,13 +649,17 @@ export function doNemesis(
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err)
           if (msg.includes('not currently running')) {
-            sim.sometimes('do evicted', false, { className: target.className, target: targetLabel, skipped: 'cold' })
+            sim.sometimes('do evicted', false, {
+              className: target.className,
+              target: targetLabel,
+              skipped: 'cold',
+            })
             return
           }
           throw err
         }
       },
-      { kind: 'nemesis', actor: 'do-nemesis' }
+      { kind: 'nemesis', actor: 'do-nemesis' },
     )
   }
 }
@@ -678,12 +686,12 @@ export async function snapshotPersistDir(persistDir: string): Promise<{
         dir: branchDir,
         async dispose() {
           await rm(branchDir, { recursive: true, force: true })
-        }
+        },
       }
     },
     async dispose() {
       await rm(snapshotDir, { recursive: true, force: true })
-    }
+    },
   }
 }
 
@@ -751,7 +759,8 @@ export function createBindingProxies(sim: Simulation, config: BindingProxiesConf
     if (!prod) {
       const cfg = config.queues?.[binding]
       if (!cfg) throw new Error(`unknown proxied queue binding "${binding}"`)
-      if (!runtimeRef) throw new Error('call proxies.attach(runtime) before sending to proxied queues')
+      if (!runtimeRef)
+        throw new Error('call proxies.attach(runtime) before sending to proxied queues')
       prod = await workerQueue(sim, runtimeRef, cfg.workerName, cfg.queueName, cfg.options)
       queueProducers.set(binding, prod)
     }
@@ -782,16 +791,16 @@ export function createBindingProxies(sim: Simulation, config: BindingProxiesConf
       if (op === 'send') {
         await prod.send(body.body, body.options as { delaySeconds?: number } | undefined)
         return new MiniflareResponse(JSON.stringify({ ok: true }), {
-          headers: { 'content-type': 'application/json' }
+          headers: { 'content-type': 'application/json' },
         })
       }
       if (op === 'sendBatch') {
         await prod.sendBatch(
           body.messages as { body: unknown; delaySeconds?: number }[],
-          body.options as { delaySeconds?: number } | undefined
+          body.options as { delaySeconds?: number } | undefined,
         )
         return new MiniflareResponse(JSON.stringify({ ok: true }), {
-          headers: { 'content-type': 'application/json' }
+          headers: { 'content-type': 'application/json' },
         })
       }
     }
@@ -804,35 +813,35 @@ export function createBindingProxies(sim: Simulation, config: BindingProxiesConf
         if (op === 'get') {
           const val = await store.get(String(body.key))
           return new MiniflareResponse(JSON.stringify({ value: val }), {
-            headers: { 'content-type': 'application/json' }
+            headers: { 'content-type': 'application/json' },
           })
         }
         if (op === 'put') {
           await store.put(
             String(body.key),
             String(body.value),
-            body.options as { expirationTtl?: number; expiration?: number } | undefined
+            body.options as { expirationTtl?: number; expiration?: number } | undefined,
           )
           return new MiniflareResponse(JSON.stringify({ ok: true }), {
-            headers: { 'content-type': 'application/json' }
+            headers: { 'content-type': 'application/json' },
           })
         }
         if (op === 'delete') {
           await store.delete(String(body.key))
           return new MiniflareResponse(JSON.stringify({ ok: true }), {
-            headers: { 'content-type': 'application/json' }
+            headers: { 'content-type': 'application/json' },
           })
         }
         if (op === 'list') {
           const res = await store.list(body.options as { prefix?: string } | undefined)
           return new MiniflareResponse(JSON.stringify(res), {
-            headers: { 'content-type': 'application/json' }
+            headers: { 'content-type': 'application/json' },
           })
         }
       } catch (err) {
         return new MiniflareResponse(
           JSON.stringify({ error: err instanceof Error ? err.message : String(err) }),
-          { status: 500, headers: { 'content-type': 'application/json' } }
+          { status: 500, headers: { 'content-type': 'application/json' } },
         )
       }
     }
@@ -848,7 +857,7 @@ export function createBindingProxies(sim: Simulation, config: BindingProxiesConf
           (cfg.rpcReset ?? 0) > 0 &&
           sim.decideFault('do_rpc_reset', cfg.rpcReset ?? 0, `${targetLabel} pre`, rng)
         return new MiniflareResponse(JSON.stringify({ reset }), {
-          headers: { 'content-type': 'application/json' }
+          headers: { 'content-type': 'application/json' },
         })
       }
       if (op === 'post') {
@@ -858,10 +867,10 @@ export function createBindingProxies(sim: Simulation, config: BindingProxiesConf
         if (ambiguous) {
           sim.after(0, `evict ${targetLabel} (post-ambiguous)`, () => tryEvict(cfg, body.target), {
             kind: 'do-evict',
-            actor: targetLabel
+            actor: targetLabel,
           })
           return new MiniflareResponse(JSON.stringify({ ambiguous: true }), {
-            headers: { 'content-type': 'application/json' }
+            headers: { 'content-type': 'application/json' },
           })
         }
         if (
@@ -870,11 +879,11 @@ export function createBindingProxies(sim: Simulation, config: BindingProxiesConf
         ) {
           sim.after(0, `evict ${targetLabel} (post-call)`, () => tryEvict(cfg, body.target), {
             kind: 'do-evict',
-            actor: targetLabel
+            actor: targetLabel,
           })
         }
         return new MiniflareResponse(JSON.stringify({ ambiguous: false }), {
-          headers: { 'content-type': 'application/json' }
+          headers: { 'content-type': 'application/json' },
         })
       }
     }
@@ -884,7 +893,7 @@ export function createBindingProxies(sim: Simulation, config: BindingProxiesConf
 
   // Generate WorkerEntrypoint classes for each configured binding
   const classBlocks: string[] = [
-    `import { WorkerEntrypoint, RpcTarget } from 'cloudflare:workers';`
+    `import { WorkerEntrypoint, RpcTarget } from 'cloudflare:workers';`,
   ]
   const serviceBindings: Record<string, { name: string; entrypoint: string }> = {}
   const proxyDOBindings: Record<string, { className: string; scriptName: string }> = {}
@@ -998,16 +1007,22 @@ class FaultyDOStub extends RpcTarget {
     const realKey = `__REAL_DO_${binding}__`
     serviceBindings[binding] = { name: proxyWorkerName, entrypoint: cls }
     proxyDOBindings[realKey] = { className: cfg.className, scriptName: cfg.scriptName }
-    const rpcMethods = (cfg.rpcMethods ?? []).filter(m => m !== 'fetch')
+    const rpcMethods = (cfg.rpcMethods ?? []).filter((m) => m !== 'fetch')
     for (const method of rpcMethods) {
-      if (!/^[A-Za-z_$][\w$]*$/.test(method) || method === 'constructor' || method.startsWith('__')) {
-        throw new RangeError(`durableObjects.${binding}.rpcMethods: invalid method name "${method}"`)
+      if (
+        !/^[A-Za-z_$][\w$]*$/.test(method) ||
+        method === 'constructor' ||
+        method.startsWith('__')
+      ) {
+        throw new RangeError(
+          `durableObjects.${binding}.rpcMethods: invalid method name "${method}"`,
+        )
       }
     }
     classBlocks.push(`
 class ${stubCls} extends FaultyDOStub {
 ${rpcMethods
-  .map(m => `  ${m}(...args) { return withDOFaults(this, () => this.stub.${m}(...args)); }`)
+  .map((m) => `  ${m}(...args) { return withDOFaults(this, () => this.stub.${m}(...args)); }`)
   .join('\n')}
 }`)
     classBlocks.push(`
@@ -1037,7 +1052,7 @@ export class ${cls} extends WorkerEntrypoint {
     compatibilityDate,
     script: classBlocks.join('\n'),
     serviceBindings: { __CF_PROXY__: hostHandler },
-    ...(Object.keys(proxyDOBindings).length > 0 ? { durableObjects: proxyDOBindings } : {})
+    ...(Object.keys(proxyDOBindings).length > 0 ? { durableObjects: proxyDOBindings } : {}),
   }
 
   return {
@@ -1053,7 +1068,7 @@ export class ${cls} extends WorkerEntrypoint {
       for (const binding of Object.keys(config.queues ?? {})) {
         await ensureQueue(binding)
       }
-    }
+    },
   }
 }
 
@@ -1070,7 +1085,7 @@ export type ProbeWorkersOptions = ProbeOptions & {
 export async function probeWorkers(
   options: ProbeWorkersOptions,
   deployment: (sim: Simulation) => MiniflareOptions,
-  scenario: (sim: Simulation, runtime: Miniflare) => void | Promise<void>
+  scenario: (sim: Simulation, runtime: Miniflare) => void | Promise<void>,
 ): Promise<ProbeReport> {
   const gate = shouldRunProbe({ allowInCI: options.allowInCI, requireEnv: options.requireEnv })
   if (!gate.run) {
@@ -1079,7 +1094,7 @@ export async function probeWorkers(
       status: 'skipped',
       skippedReason: gate.reason,
       findings: [],
-      unmetProperties: []
+      unmetProperties: [],
     }
     return { ...skipped, guidance: formatAgentGuidance(skipped) }
   }
@@ -1088,7 +1103,8 @@ export async function probeWorkers(
   const envMs = process.env.CLOUDFLAKE_PROBE_MS
   const envRuns = process.env.CLOUDFLAKE_PROBE_RUNS
 
-  const replayTemplate = options.replayCommand ?? `CLOUDFLAKE_SEED={seed} CLOUDFLAKE_PROBE=1 node <probe-script>`
+  const replayTemplate =
+    options.replayCommand ?? `CLOUDFLAKE_SEED={seed} CLOUDFLAKE_PROBE=1 node <probe-script>`
   const seed = envSeed !== undefined && envSeed !== '' ? Number(envSeed) : (options.seed ?? 0)
   const runs =
     envSeed !== undefined && envSeed !== ''
@@ -1101,7 +1117,7 @@ export async function probeWorkers(
       ? undefined
       : envMs !== undefined && envMs !== ''
         ? Number(envMs)
-        : options.durationMs ?? (runs === undefined ? 10_000 : undefined)
+        : (options.durationMs ?? (runs === undefined ? 10_000 : undefined))
 
   const res = await campaignWorkers(
     {
@@ -1110,10 +1126,10 @@ export async function probeWorkers(
       runs,
       durationMs,
       onFailure: 'collect',
-      requireProperties: false
+      requireProperties: false,
     },
     deployment,
-    scenario
+    scenario,
   )
 
   const maxMinimize = options.maxMinimize ?? 3
@@ -1129,9 +1145,13 @@ export async function probeWorkers(
       let initialFailure: SimulationFailure | undefined
       try {
         await simulateWorkers(
-          { ...options, seed: bucket.firstSeed, traceLimit: Math.max(options.traceLimit ?? 32, 64) },
+          {
+            ...options,
+            seed: bucket.firstSeed,
+            traceLimit: Math.max(options.traceLimit ?? 32, 64),
+          },
           deployment,
-          scenario
+          scenario,
         )
       } catch (err) {
         if (err instanceof SimulationFailure) initialFailure = err
@@ -1145,8 +1165,8 @@ export async function probeWorkers(
 
         // Delta-debug faults for workerd failures when fault count is tractable
         if (original.length >= 2 && original.length <= 24) {
-          const allIndices = new Set(original.map(f => f.index))
-          let active = original.map(f => f.index)
+          const allIndices = new Set(original.map((f) => f.index))
+          let active = original.map((f) => f.index)
           let n = 2
           while (active.length >= 2) {
             const chunkSize = Math.ceil(active.length / n)
@@ -1160,7 +1180,7 @@ export async function probeWorkers(
                 await simulateWorkers(
                   { ...options, seed: bucket.firstSeed, traceLimit: 64, disabledFaults: disabled },
                   deployment,
-                  scenario
+                  scenario,
                 )
               } catch (err) {
                 if (err instanceof SimulationFailure && err.phase === initialFailure.phase) {
@@ -1178,7 +1198,7 @@ export async function probeWorkers(
             }
           }
           const kept = new Set(active)
-          minimalFaults = original.filter(f => kept.has(f.index))
+          minimalFaults = original.filter((f) => kept.has(f.index))
         }
       }
     }
@@ -1193,25 +1213,21 @@ export async function probeWorkers(
       originalFaultCount,
       minimalFaults,
       trace,
-      hints: inferFailureHints(bucket.phase, bucket.message, minimalFaults)
+      hints: inferFailureHints(bucket.phase, bucket.message, minimalFaults),
     })
   }
 
   const requireProperties = options.requireProperties ?? true
   const unmetProperties = requireProperties ? res.report.unmetProperties : []
   const status: ProbeReport['status'] =
-    findings.length > 0
-      ? 'fail_safety'
-      : unmetProperties.length > 0
-        ? 'fail_coverage'
-        : 'pass'
+    findings.length > 0 ? 'fail_safety' : unmetProperties.length > 0 ? 'fail_coverage' : 'pass'
 
   const base: Omit<ProbeReport, 'guidance'> = {
     name: options.name,
     status,
     report: res.report,
     findings,
-    unmetProperties
+    unmetProperties,
   }
   const full: ProbeReport = { ...base, guidance: formatAgentGuidance(base) }
 
@@ -1226,4 +1242,3 @@ export async function probeWorkers(
   }
   return full
 }
-

@@ -30,7 +30,7 @@ Tests run under any runner. The repository uses `node --test`.
 1. **Name the property.** Write down what must stay true regardless of order,
    e.g. "each payment posts exactly once", "the counter equals the number of
    distinct requests", "no row exists for a failed model response". Split it into
-   an *invariant* (true after every event) and a *final check* (true once the
+   an _invariant_ (true after every event) and a _final check_ (true once the
    system settles).
 2. **Find the nondeterminism.** List every place where order, timing or delivery
    count can vary: queue deliveries, retries, fetches between Workers, alarms,
@@ -60,34 +60,51 @@ for any failure the seed, phase, virtual time and cause.
 
 ```js
 import {
-  simulate, campaign, probe, exploreMultiverse, minimizeFaults,
-  HistoryRecorder, checkLinearizability, formatCampaignReport, formatTrace,
-  simulatedQueue, simulatedAlarm, simulatedKV, simulatedDurableObject,
-  simulatedWaitUntil, simulatedFetch, client, createCheckpointHub,
-  SimulationFailure, PropertyCoverageFailure, ProbeFailure, seedFromEnv
+  simulate,
+  campaign,
+  probe,
+  exploreMultiverse,
+  minimizeFaults,
+  HistoryRecorder,
+  checkLinearizability,
+  formatCampaignReport,
+  formatTrace,
+  simulatedQueue,
+  simulatedAlarm,
+  simulatedKV,
+  simulatedDurableObject,
+  simulatedWaitUntil,
+  simulatedFetch,
+  client,
+  createCheckpointHub,
+  SimulationFailure,
+  PropertyCoverageFailure,
+  ProbeFailure,
+  seedFromEnv,
 } from 'cloudflake'
 ```
 
-| Call | Behavior |
-| --- | --- |
-| `simulate(options, scenario)` | Runs one schedule. Resolves `{ seed, steps, time, assertions, faults, firedFaults }` or throws `SimulationFailure`. |
-| `campaign({ ...options, runs, durationMs, onFailure }, scenario)` | Runs multiple seeds, aggregates Antithesis property coverage (`sometimes`/`reachable`/`always`), and buckets failures when `onFailure: 'collect'`. |
-| `probe({ name, durationMs, replayCommand }, scenario)` | **Local exploratory prober** (auto-skips in CI unless `CLOUDFLAKE_PROBE=1`). Runs longer exploration, buckets failures, runs `minimizeFaults`, and prints structured guidance for coding agents. |
-| `exploreMultiverse(options)` | Antithesis-style coverage-guided snapshot & branching explorer (`sim.cover()`, assertions, faults, and optional V8 branch coverage). |
-| `minimizeFaults(options, scenario)` | Delta-debugs a failing seed to find the minimal subset of injected faults that still reproduces the failure. |
-| `sim.after(ms, label, action)` | Schedules `action` at `now + ms` virtual ms. Returns a cancel function. Equal-time events are ordered by the seed. |
-| `sim.onIdle(label, action)` | Runs once the event calendar drains to quiescence. Prefer this over hardcoded settlement timestamps. |
-| `sim.heal()` / `healAt` | Transitions from chaos to quiescence so retries drain before `onIdle` convergence checks. |
-| `sim.deliver(label, action, policy)` | Schedules delivery with seeded latency (`maxDelay` / `delayDistribution`), zero-step `drop`, `1..maxDuplicates` copies, and `ambiguous` (gray) failures. |
-| `sim.invariant(name, check)` | Runs `check` after setup and after every event. Throw (e.g. `assert`) to fail. |
-| `sim.always` / `alwaysOrUnreachable` / `sometimes` / `reachable` / `unreachable` | Antithesis-style safety and reachability assertions. `sometimes` and expected `reachable`/`always` fail the campaign with `PropertyCoverageFailure` if never satisfied. |
-| `sim.rng` / `sim.rngStream(name)` / `sim.int(limit)` | 128-bit `xoshiro128++` PRNG with isolated named streams and combinators (`range`, `chance`, `pick`, `shuffle`, `weighted`, `bytes`, `uuid`, `delay`). |
-| `sim.profile` | TigerBeetle VOPR-style swarm fault profile randomized per seed (constrain with `options.swarm`). |
-| `HistoryRecorder` / `checkLinearizability` | Verifies concurrent operation histories (including `indeterminate` ambiguous outcomes) against a pure sequential reference model. |
-| `sim.waitFor(registerWake, label)` | Cooperatively parks an active `client()` on a lock/input-gate and detects deadlocks if the calendar drains while parked. |
-| `sim.cover(edge)` | Records a state/branch coverage edge for `exploreMultiverse`. |
+| Call                                                                             | Behavior                                                                                                                                                                                         |
+| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `simulate(options, scenario)`                                                    | Runs one schedule. Resolves `{ seed, steps, time, assertions, faults, firedFaults }` or throws `SimulationFailure`.                                                                              |
+| `campaign({ ...options, runs, durationMs, onFailure }, scenario)`                | Runs multiple seeds, aggregates Antithesis property coverage (`sometimes`/`reachable`/`always`), and buckets failures when `onFailure: 'collect'`.                                               |
+| `probe({ name, durationMs, replayCommand }, scenario)`                           | **Local exploratory prober** (auto-skips in CI unless `CLOUDFLAKE_PROBE=1`). Runs longer exploration, buckets failures, runs `minimizeFaults`, and prints structured guidance for coding agents. |
+| `exploreMultiverse(options)`                                                     | Antithesis-style coverage-guided snapshot & branching explorer (`sim.cover()`, assertions, faults, and optional V8 branch coverage).                                                             |
+| `minimizeFaults(options, scenario)`                                              | Delta-debugs a failing seed to find the minimal subset of injected faults that still reproduces the failure.                                                                                     |
+| `sim.after(ms, label, action)`                                                   | Schedules `action` at `now + ms` virtual ms. Returns a cancel function. Equal-time events are ordered by the seed.                                                                               |
+| `sim.onIdle(label, action)`                                                      | Runs once the event calendar drains to quiescence. Prefer this over hardcoded settlement timestamps.                                                                                             |
+| `sim.heal()` / `healAt`                                                          | Transitions from chaos to quiescence so retries drain before `onIdle` convergence checks.                                                                                                        |
+| `sim.deliver(label, action, policy)`                                             | Schedules delivery with seeded latency (`maxDelay` / `delayDistribution`), zero-step `drop`, `1..maxDuplicates` copies, and `ambiguous` (gray) failures.                                         |
+| `sim.invariant(name, check)`                                                     | Runs `check` after setup and after every event. Throw (e.g. `assert`) to fail.                                                                                                                   |
+| `sim.always` / `alwaysOrUnreachable` / `sometimes` / `reachable` / `unreachable` | Antithesis-style safety and reachability assertions. `sometimes` and expected `reachable`/`always` fail the campaign with `PropertyCoverageFailure` if never satisfied.                          |
+| `sim.rng` / `sim.rngStream(name)` / `sim.int(limit)`                             | 128-bit `xoshiro128++` PRNG with isolated named streams and combinators (`range`, `chance`, `pick`, `shuffle`, `weighted`, `bytes`, `uuid`, `delay`).                                            |
+| `sim.profile`                                                                    | TigerBeetle VOPR-style swarm fault profile randomized per seed (constrain with `options.swarm`).                                                                                                 |
+| `HistoryRecorder` / `checkLinearizability`                                       | Verifies concurrent operation histories (including `indeterminate` ambiguous outcomes) against a pure sequential reference model.                                                                |
+| `sim.waitFor(registerWake, label)`                                               | Cooperatively parks an active `client()` on a lock/input-gate and detects deadlocks if the calendar drains while parked.                                                                         |
+| `sim.cover(edge)`                                                                | Records a state/branch coverage edge for `exploreMultiverse`.                                                                                                                                    |
 
 Cloudflare in-process simulators:
+
 - `simulatedQueue(sim, name, consumer, { maxBatchSize, maxBatchTimeoutMs, maxDelay, maxRetries, retryDelaySeconds, duplicate, maxDuplicates, deadLetterQueue, onExhausted })`: multi-message batching, partial batch `ack`/`retry`, reordering, duplicates, and DLQ.
 - `simulatedAlarm(sim, objectName, fire, { maxRetries, retryBaseDelayMs, duplicate, maxDelay })`: passes `{ retryCount, isRetry }`, retries with exponential backoff on throw, and supports at-least-once duplicates and jitter.
 - `simulatedKV(sim, name, { propagationDelayMs, staleRead, errorRate })`: eventual consistency stale reads, tombstones, virtual-time TTLs, and strongly consistent `.inspect(key)`.
@@ -99,9 +116,16 @@ Cloudflare in-process simulators:
 
 ```js
 import {
-  simulateWorkers, campaignWorkers, probeWorkers, workerQueue,
-  createBindingProxies, controlServiceBinding, createVirtualRuntimeModule,
-  outboundFaultService, doNemesis, snapshotPersistDir
+  simulateWorkers,
+  campaignWorkers,
+  probeWorkers,
+  workerQueue,
+  createBindingProxies,
+  controlServiceBinding,
+  createVirtualRuntimeModule,
+  outboundFaultService,
+  doNemesis,
+  snapshotPersistDir,
 } from 'cloudflake/miniflare'
 ```
 
@@ -157,35 +181,48 @@ import { campaign, simulate, simulatedQueue } from 'cloudflake'
 async function payments(sim) {
   const posted = new Set()
   let balance = 0
-  const queue = simulatedQueue(sim, 'payments', ({ messages }) => {
-    for (const { id, body } of messages) {
-      if (posted.has(id)) continue          // remove to see the failure
-      posted.add(id)
-      balance += body.amount
-    }
-  }, { duplicate: 0.5 })
+  const queue = simulatedQueue(
+    sim,
+    'payments',
+    ({ messages }) => {
+      for (const { id, body } of messages) {
+        if (posted.has(id)) continue // remove to see the failure
+        posted.add(id)
+        balance += body.amount
+      }
+    },
+    { duplicate: 0.5 },
+  )
   sim.invariant('one posting per payment', () => assert.equal(balance, 7 * posted.size))
   for (let i = 0; i < 8; i++) await queue.send({ amount: 7 })
   sim.after(1, 'all payments settled', () => assert.equal(balance, 56))
 }
 
 await campaign({ seed: 0, runs: 1000 }, payments)
-await simulate({ seed: 42, onStep: console.log }, payments)   // replay one schedule
+await simulate({ seed: 42, onStep: console.log }, payments) // replay one schedule
 ```
 
 ## With Hegel property-based testing
 
-Let Hegel generate the workload *and* the seed, so it can shrink both:
+Let Hegel generate the workload _and_ the seed, so it can shrink both:
 
 ```js
 import { testAsync } from '@hegeldev/hegel'
 import * as g from '@hegeldev/hegel/generators'
 
-test('redelivery preserves the sum', () => testAsync(async tc => {
-  const amounts = tc.draw(g.arrays(g.integers({ minValue: 1, maxValue: 1000 }), { minSize: 1, maxSize: 12 }))
-  const seed = tc.draw(g.integers({ minValue: 0, maxValue: 0xffffffff }))
-  await simulate({ seed }, async sim => { /* fresh state, use amounts */ })
-}, { testCases: 100 }))
+test('redelivery preserves the sum', () =>
+  testAsync(
+    async (tc) => {
+      const amounts = tc.draw(
+        g.arrays(g.integers({ minValue: 1, maxValue: 1000 }), { minSize: 1, maxSize: 12 }),
+      )
+      const seed = tc.draw(g.integers({ minValue: 0, maxValue: 0xffffffff }))
+      await simulate({ seed }, async (sim) => {
+        /* fresh state, use amounts */
+      })
+    },
+    { testCases: 100 },
+  ))
 ```
 
 Draw values with `tc.draw` rather than `sim.int` when you want Hegel to shrink
@@ -194,14 +231,14 @@ them. Every case and every shrink attempt must build fresh state. Use fewer
 
 ## Choosing the tool
 
-| Situation | Use |
-| --- | --- |
-| Logic with queue/alarm/retry semantics, no real storage needed | `simulate` + `simulatedQueue` / `simulatedAlarm` |
-| Real D1/KV/R2/DO storage, service bindings, multi-Worker | `simulateWorkers` |
-| A real `queue()` handler and its ack/retry behavior | `workerQueue` |
-| Two requests interleaving between a read and a write | `client` + `checkpoint`, exposed to the Worker through a service binding |
-| Inputs whose shape matters (amounts, lists, malformed payloads) | Hegel generators + a drawn seed |
-| Durable Object restarts | `runtime.unsafeEvictDurableObject(worker, className, { name })` with `unsafeInspectDurableObjects: true` |
+| Situation                                                       | Use                                                                                                      |
+| --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Logic with queue/alarm/retry semantics, no real storage needed  | `simulate` + `simulatedQueue` / `simulatedAlarm`                                                         |
+| Real D1/KV/R2/DO storage, service bindings, multi-Worker        | `simulateWorkers`                                                                                        |
+| A real `queue()` handler and its ack/retry behavior             | `workerQueue`                                                                                            |
+| Two requests interleaving between a read and a write            | `client` + `checkpoint`, exposed to the Worker through a service binding                                 |
+| Inputs whose shape matters (amounts, lists, malformed payloads) | Hegel generators + a drawn seed                                                                          |
+| Durable Object restarts                                         | `runtime.unsafeEvictDurableObject(worker, className, { name })` with `unsafeInspectDurableObjects: true` |
 
 Runnable references live in the package: `examples/counter.mjs`,
 `examples/hegel.test.mjs`, and in the repository `test/workers.test.mjs`.

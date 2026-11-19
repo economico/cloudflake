@@ -70,20 +70,27 @@ export function generateFaultProfile(rng: Prng, bounds: SwarmBounds = {}): Fault
   const maxDelayCap = bounds.maxDelay ?? 200
   const maxDelay = maxDelayCap > 0 && rng.chance(0.85) ? rng.range(1, maxDelayCap) : 0
 
-  const delayDistribution: DelayDistribution = maxDelay === 0
-    ? { kind: 'uniform', max: 0 }
-    : rng.weighted<DelayDistribution>([
-        [3, { kind: 'uniform', max: maxDelay }],
-        [3, { kind: 'pareto', min: 1, alpha: 1.4, max: maxDelay }],
-        [2, {
-          kind: 'bimodal',
-          fastMax: Math.max(1, Math.floor(maxDelay * 0.1)),
-          slowMin: Math.max(1, Math.floor(maxDelay * 0.5)),
-          slowMax: maxDelay,
-          slowChance: 0.1 + rng.float() * 0.25
-        }],
-        [2, { kind: 'exponential', mean: Math.max(1, Math.floor(maxDelay * 0.25)), max: maxDelay }]
-      ])
+  const delayDistribution: DelayDistribution =
+    maxDelay === 0
+      ? { kind: 'uniform', max: 0 }
+      : rng.weighted<DelayDistribution>([
+          [3, { kind: 'uniform', max: maxDelay }],
+          [3, { kind: 'pareto', min: 1, alpha: 1.4, max: maxDelay }],
+          [
+            2,
+            {
+              kind: 'bimodal',
+              fastMax: Math.max(1, Math.floor(maxDelay * 0.1)),
+              slowMin: Math.max(1, Math.floor(maxDelay * 0.5)),
+              slowMax: maxDelay,
+              slowChance: 0.1 + rng.float() * 0.25,
+            },
+          ],
+          [
+            2,
+            { kind: 'exponential', mean: Math.max(1, Math.floor(maxDelay * 0.25)), max: maxDelay },
+          ],
+        ])
 
   const duplicate = drawRate(rng, bounds.maxDuplicate ?? 0.45, 0.75)
 
@@ -99,10 +106,14 @@ export function generateFaultProfile(rng: Prng, bounds: SwarmBounds = {}): Fault
     alarmDuplicate: drawRate(rng, bounds.maxAlarmDuplicate ?? 0.3, 0.6),
     alarmMaxDelay: rng.chance(0.6) ? boundedRange(rng, 0, bounds.maxAlarmDelay ?? 500) : 0,
     kvStaleRead: drawRate(rng, bounds.maxKvStaleRead ?? 0.5, 0.7),
-    kvPropagationDelayMs: rng.chance(0.7) ? boundedRange(rng, 10, bounds.maxKvPropagationDelayMs ?? 60_000) : 0,
+    kvPropagationDelayMs: rng.chance(0.7)
+      ? boundedRange(rng, 10, bounds.maxKvPropagationDelayMs ?? 60_000)
+      : 0,
     waitUntilDrop: drawRate(rng, bounds.maxWaitUntilDrop ?? 0.5, 0.65),
     clockSkewMs: rng.chance(0.6) ? boundedRange(rng, 0, bounds.maxClockSkewMs ?? 500) : 0,
     partitionChance: drawRate(rng, bounds.maxPartitionChance ?? 0.2, 0.5),
-    partitionDurationMs: rng.chance(0.5) ? boundedRange(rng, 50, bounds.maxPartitionDurationMs ?? 5_000) : 0
+    partitionDurationMs: rng.chance(0.5)
+      ? boundedRange(rng, 50, bounds.maxPartitionDurationMs ?? 5_000)
+      : 0,
   })
 }

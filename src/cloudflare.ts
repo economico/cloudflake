@@ -13,7 +13,11 @@ const DELETED: unique symbol = Symbol('deleted')
 export class DurableObjectResetError extends Error {
   readonly retryable: boolean
   readonly ambiguous: boolean
-  constructor(object: string, message: string, options: { retryable?: boolean; ambiguous?: boolean } = {}) {
+  constructor(
+    object: string,
+    message: string,
+    options: { retryable?: boolean; ambiguous?: boolean } = {},
+  ) {
     super(`Durable Object "${object}" reset: ${message}`)
     this.name = 'DurableObjectResetError'
     this.retryable = options.retryable ?? true
@@ -84,7 +88,7 @@ export function simulatedKV(sim: Simulation, name: string, options: SimulatedKVO
     async put(
       key: string,
       value: string,
-      opts?: { expirationTtl?: number; expiration?: number }
+      opts?: { expirationTtl?: number; expiration?: number },
     ): Promise<void> {
       maybeError('put')
       let expiresAt: number | null = null
@@ -98,7 +102,7 @@ export function simulatedKV(sim: Simulation, name: string, options: SimulatedKVO
         value,
         writtenAt: sim.now,
         visibleAt: sim.now + propagationDelayMs,
-        expiresAt
+        expiresAt,
       })
       // Keep bounded version history per key
       if (versions.length > 16) versions.shift()
@@ -111,7 +115,7 @@ export function simulatedKV(sim: Simulation, name: string, options: SimulatedKVO
         value: null,
         writtenAt: sim.now,
         visibleAt: sim.now + propagationDelayMs,
-        expiresAt: null
+        expiresAt: null,
       })
       if (versions.length > 16) versions.shift()
       history.set(key, versions)
@@ -131,7 +135,7 @@ export function simulatedKV(sim: Simulation, name: string, options: SimulatedKVO
     /** Read strongly consistent latest value (for invariants / final checks). */
     inspect(key: string): string | null {
       return readVersion(key, false)
-    }
+    },
   }
 }
 
@@ -181,7 +185,7 @@ export function simulatedDurableObject<T extends { alarm?(info: AlarmInfo): void
   sim: Simulation,
   name: string,
   factory: (ctx: SimulatedDOContext) => T,
-  options: SimulatedDOOptions = {}
+  options: SimulatedDOOptions = {},
 ) {
   const rng = sim.rngStream(`do:${name}`)
   const rpcReset = options.rpcReset ?? 0
@@ -197,7 +201,7 @@ export function simulatedDurableObject<T extends { alarm?(info: AlarmInfo): void
   let gateLocked = false
   const gateWaiters: (() => void)[] = []
 
-  const waitGate = () => sim.waitFor(wake => gateWaiters.push(wake), `${name} input gate`)
+  const waitGate = () => sim.waitFor((wake) => gateWaiters.push(wake), `${name} input gate`)
 
   const releaseGate = () => {
     gateLocked = false
@@ -208,11 +212,11 @@ export function simulatedDurableObject<T extends { alarm?(info: AlarmInfo): void
   const alarmSlot = simulatedAlarm(
     sim,
     name,
-    async info => {
+    async (info) => {
       const obj = await enterInstance()
       if (obj.alarm) await obj.alarm(info)
     },
-    options.alarm
+    options.alarm,
   )
 
   const makeStorage = (backing: Map<string, unknown>): SimulatedDOStorage => {
@@ -270,10 +274,10 @@ export function simulatedDurableObject<T extends { alarm?(info: AlarmInfo): void
             return out
           },
           // Nested transactions flatten into the enclosing one.
-          transaction: inner => inner(txn),
+          transaction: (inner) => inner(txn),
           getAlarm: () => alarmSlot.getAlarm(),
-          setAlarm: when => alarmSlot.setAlarm(when),
-          deleteAlarm: () => alarmSlot.deleteAlarm()
+          setAlarm: (when) => alarmSlot.setAlarm(when),
+          deleteAlarm: () => alarmSlot.deleteAlarm(),
         }
         const result = await closure(txn)
         // Commit atomically on success; a throw discards the staged writes.
@@ -284,8 +288,8 @@ export function simulatedDurableObject<T extends { alarm?(info: AlarmInfo): void
         return result
       },
       getAlarm: () => alarmSlot.getAlarm(),
-      setAlarm: when => alarmSlot.setAlarm(when),
-      deleteAlarm: () => alarmSlot.deleteAlarm()
+      setAlarm: (when) => alarmSlot.setAlarm(when),
+      deleteAlarm: () => alarmSlot.deleteAlarm(),
     }
     return api
   }
@@ -322,7 +326,7 @@ export function simulatedDurableObject<T extends { alarm?(info: AlarmInfo): void
       // Application-initiated, so not a minimizable fault: always reset the instance.
       if (instance) dropInstance()
       throw new DurableObjectResetError(name, reason, { retryable: true, ambiguous: false })
-    }
+    },
   }
 
   const ensureInstance = (): T => {
@@ -345,26 +349,35 @@ export function simulatedDurableObject<T extends { alarm?(info: AlarmInfo): void
   return {
     /** Invoke a method on the DO with realistic eviction, input-gate, and reset faults. */
     async call<R>(fn: (obj: T) => R | Promise<R>): Promise<R> {
-      if (evictBeforeCall > 0 && sim.decideFault('do_evict', evictBeforeCall, `${name} pre-call`, rng)) {
+      if (
+        evictBeforeCall > 0 &&
+        sim.decideFault('do_evict', evictBeforeCall, `${name} pre-call`, rng)
+      ) {
         dropInstance()
       }
       if (rpcReset > 0 && sim.decideFault('do_rpc_reset', rpcReset, `${name} reset`, rng)) {
         throw new DurableObjectResetError(name, 'overloaded / connection reset', {
           retryable: true,
-          ambiguous: false
+          ambiguous: false,
         })
       }
       // Wait for any active blockConcurrencyWhile gate before entering
       const obj = await enterInstance()
       const result = await fn(obj)
-      if (rpcAmbiguous > 0 && sim.decideFault('do_rpc_ambiguous', rpcAmbiguous, `${name} ambiguous`, rng)) {
+      if (
+        rpcAmbiguous > 0 &&
+        sim.decideFault('do_rpc_ambiguous', rpcAmbiguous, `${name} ambiguous`, rng)
+      ) {
         dropInstance()
         throw new DurableObjectResetError(name, 'connection lost after execution', {
           retryable: true,
-          ambiguous: true
+          ambiguous: true,
         })
       }
-      if (evictAfterCall > 0 && sim.decideFault('do_evict', evictAfterCall, `${name} post-call`, rng)) {
+      if (
+        evictAfterCall > 0 &&
+        sim.decideFault('do_evict', evictAfterCall, `${name} post-call`, rng)
+      ) {
         dropInstance()
       }
       return result
@@ -373,9 +386,15 @@ export function simulatedDurableObject<T extends { alarm?(info: AlarmInfo): void
     evict,
     /** Direct access to durable storage for invariants/assertions without waking the instance. */
     storage: ctx.storage,
-    get evictions() { return evictions },
-    get boots() { return boots },
-    get active() { return instance !== undefined }
+    get evictions() {
+      return evictions
+    },
+    get boots() {
+      return boots
+    },
+    get active() {
+      return instance !== undefined
+    },
   }
 }
 
@@ -409,11 +428,15 @@ export function simulatedWaitUntil(sim: Simulation, options: SimulatedWaitUntilO
           await task()
           completed++
         },
-        { kind: 'waitUntil' }
+        { kind: 'waitUntil' },
       )
     },
-    get dropped() { return dropped },
-    get completed() { return completed }
+    get dropped() {
+      return dropped
+    },
+    get completed() {
+      return completed
+    },
   }
 }
 
@@ -438,7 +461,7 @@ export type SimulatedFetchOptions = {
 export function simulatedFetch(
   sim: Simulation,
   handler: (request: Request) => Response | Promise<Response>,
-  options: SimulatedFetchOptions = {}
+  options: SimulatedFetchOptions = {},
 ) {
   const rng = sim.rngStream('outbound-fetch')
   const errorRate = options.errorRate ?? 0
