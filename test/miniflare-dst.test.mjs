@@ -19,6 +19,60 @@ import {
 
 const RUNTIME_MODULE = createVirtualRuntimeModule()
 
+test('workerd virtual runtime moves new Date() and Date() with the virtual clock', async () => {
+  // Code that reads the clock as \`new Date()\` or \`Date()\` must see the same virtual time as
+  // \`Date.now()\`, or timers and timeouts under test still wait on real time. Dates built from
+  // a value, and the Date statics, are untouched.
+  const workerScript = `
+    import { wrapWorker } from './__cloudflake_runtime.mjs'
+    export default wrapWorker({
+      async fetch() {
+        const made = new Date()
+        return Response.json({
+          now: Date.now(),
+          made: made.getTime(),
+          iso: made.toISOString(),
+          called: Date(),
+          fromValue: new Date(0).getTime(),
+          fromParts: new Date(2026, 0, 2).getUTCDate(),
+          utc: Date.UTC(2026, 0, 1),
+          parse: Date.parse('2026-01-01T00:00:00Z'),
+          isDate: made instanceof Date,
+          tag: Object.prototype.toString.call(made),
+        })
+      }
+    })
+  `
+  let payload
+  await simulateWorkers(
+    { seed: 5, startTime: Date.UTC(2030, 5, 1) },
+    (sim) => ({
+      modules: [
+        { type: 'ESModule', path: 'index.mjs', contents: workerScript },
+        { type: 'ESModule', path: '__cloudflake_runtime.mjs', contents: RUNTIME_MODULE },
+      ],
+      compatibilityDate: '2026-07-01',
+      serviceBindings: { __CLOUDFLAKE__: controlServiceBinding(sim) },
+    }),
+    async (sim, runtime) => {
+      sim.after(86_400_000, 'a day later', async () => {
+        payload = await (await runtime.dispatchFetch('https://app.test/')).json()
+      })
+    },
+  )
+  const expected = Date.UTC(2030, 5, 2)
+  assert.equal(payload.now, expected)
+  assert.equal(payload.made, expected, 'new Date() reads the virtual clock')
+  assert.equal(payload.iso, new Date(expected).toISOString())
+  assert.equal(Date.parse(payload.called), expected, 'Date() reads the virtual clock')
+  assert.equal(payload.fromValue, 0)
+  assert.equal(payload.fromParts, 2)
+  assert.equal(payload.utc, Date.UTC(2026, 0, 1))
+  assert.equal(payload.parse, Date.UTC(2026, 0, 1))
+  assert.equal(payload.isDate, true)
+  assert.equal(payload.tag, '[object Date]')
+})
+
 test('workerd virtual runtime syncs Date.now, Math.random, crypto.randomUUID, assertions, and waitUntil drops', async () => {
   const workerScript = `
     import { wrapWorker, cloudflakeAssert } from './__cloudflake_runtime.mjs'

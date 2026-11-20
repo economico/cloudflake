@@ -401,7 +401,7 @@ export function controlServiceBinding(sim: Simulation, options: ControlBindingOp
 
 /**
  * Returns an ES module source string (`__cloudflake_runtime.mjs`) that can be bundled or
- * attached as a Miniflare module to synchronize `Date.now`, `Math.random`, `crypto.randomUUID`,
+ * attached as a Miniflare module to synchronize `Date.now`, `new Date()`, `Date()`, `Math.random`, `crypto.randomUUID`,
  * `ctx.waitUntil`, DO `ctx.storage` alarms, and Antithesis assertions inside `workerd`
  * with `controlServiceBinding(sim)`.
  */
@@ -440,7 +440,20 @@ function nextUUID() {
 function patchGlobals() {
   if (installed) return;
   installed = true;
-  Date.now = () => virtualNow;
+  const RealDate = Date;
+  RealDate.now = () => virtualNow;
+  // \`new Date()\` and \`Date()\` read the clock without calling Date.now, so replace the
+  // constructor: with no arguments it reads the virtual clock, with any it is the real one.
+  // Statics come through the prototype chain and instances keep Date's own prototype, so
+  // \`instanceof Date\`, \`Date.UTC\` and \`Date.parse\` behave as before.
+  function VirtualDate(...args) {
+    if (!new.target) return new RealDate(virtualNow).toString();
+    return Reflect.construct(RealDate, args.length === 0 ? [virtualNow] : args, new.target);
+  }
+  Object.setPrototypeOf(VirtualDate, RealDate);
+  Object.defineProperty(VirtualDate, 'prototype', { value: RealDate.prototype });
+  Object.defineProperty(VirtualDate, 'name', { value: 'Date' });
+  globalThis.Date = VirtualDate;
   Math.random = () => nextFloat();
   if (globalThis.crypto) {
     try {
