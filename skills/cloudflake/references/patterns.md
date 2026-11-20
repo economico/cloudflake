@@ -149,7 +149,8 @@ restart reaches the new object.
 
 ## Injecting time and ids
 
-Code that calls `Date.now()` or `crypto.randomUUID()` directly escapes the seed.
+Code that calls `Date.now()`, `new Date()` or `crypto.randomUUID()` directly escapes the seed in a
+model test (inside `workerd`, `createVirtualRuntimeModule()` covers all three).
 Pass them in:
 
 ```js

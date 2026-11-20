@@ -132,7 +132,7 @@ import {
 - `simulateWorkers` / `campaignWorkers`: run single or parallel (`concurrency`) `workerd` runs with aggregated Antithesis property reports.
 - `probeWorkers`: local exploratory `workerd` prober (auto-skips in CI by default) with fault minimization and agent-ready failure guidance.
 - `createBindingProxies(sim, { queues, kv, durableObjects })`: drop-in `WorkerEntrypoint`/`RpcTarget` proxies so real Workers calling `env.MY_QUEUE.send()`, `env.MY_KV.get/put()`, and `env.MY_DO.getByName().fetch()` (plus JS RPC methods listed in `durableObjects[binding].rpcMethods`) get virtual-time queues, KV stale reads, and DO RPC reset/ambiguous faults with zero app code changes.
-- `controlServiceBinding(sim)` + `createVirtualRuntimeModule()`: syncs `Date.now()`, `Math.random()`, `crypto.randomUUID()`, `ctx.waitUntil(() => task())` drops (factories only; a passed Promise is already running), real DO `ctx.storage` alarms, and `cloudflakeAssert(env)` inside `workerd` onto Cloudflake's virtual calendar.
+- `controlServiceBinding(sim)` + `createVirtualRuntimeModule()`: syncs `Date.now()`, `new Date()` and `Date()`, `Math.random()`, `crypto.randomUUID()`, `ctx.waitUntil(() => task())` drops (factories only; a passed Promise is already running), real DO `ctx.storage` alarms, and `cloudflakeAssert(env)` inside `workerd` onto Cloudflake's virtual calendar.
 - `outboundFaultService(sim, handler, { hub, errorRate, timeoutRate, ambiguousRate })`: drop-in Miniflare `outboundService` for outbound `fetch()` faults and `CheckpointHub` interleaving.
 - `doNemesis(sim, runtime, targets, options)`: seeded `unsafeEvictDurableObject` chaos actor with `sometimes('do evicted')` coverage.
 - `snapshotPersistDir(persistDir)`: clone SQLite/KV/R2/DO persistence directories for midpoint multiverse branching.
@@ -150,9 +150,12 @@ Keep CI tests fast with small fixed seed counts. Put longer TigerBeetle/Antithes
 - **Fresh state per run.** Construct every map, counter, database and runtime
   inside the scenario. Module-level state leaks between seeds and breaks replay.
 - **No ambient time or randomness in the code under test.** `Date.now()`,
-  `Math.random()`, `crypto.randomUUID()` and real `setTimeout` are outside
-  Cloudflake's control. Inject a clock reading `sim.now` and an id/random source
-  built on `sim.int`, or the seed will not reproduce the failure.
+  `new Date()`, `Math.random()`, `crypto.randomUUID()` and real `setTimeout` are
+  outside Cloudflake's control in a model test. Inject a clock reading `sim.now`
+  and an id/random source built on `sim.int`, or the seed will not reproduce the
+  failure. Inside `workerd`, the virtual runtime module moves all but `setTimeout`
+  onto the virtual calendar; test timeouts by advancing virtual time, never by
+  waiting in real time.
 - **Actions run to completion.** An event's async body is awaited before the next
   event starts. A read-then-write race only shows up if the read and the write
   are separate events (`sim.after` inside the action) or a `checkpoint` sits
