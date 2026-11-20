@@ -1,6 +1,6 @@
 {
   "name": "cloudflake",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Seeded simulation testing for Cloudflare Workers and Durable Objects",
   "keywords": [
     "cloudflare",
