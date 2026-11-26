@@ -1,3 +1,6 @@
+// Copyright 2026 Economico, LLC
+// SPDX-License-Identifier: MIT
+
 // Reference-model & linearizability checker (TigerBeetle StateChecker / Porcupine style).
 // Handles definite ok/fail calls AND indeterminate (ambiguous) outcomes where a
 // timed-out or reset request may or may not have linearized on the server.

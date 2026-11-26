@@ -9,8 +9,9 @@
     "simulation-testing",
     "workers"
   ],
-  "homepage": "https://github.com/economico/cloudflake#readme",
-  "license": "Apache-2.0",
+  "homepage": "https://cloudflake.dev",
+  "license": "MIT",
+  "author": "Economico, LLC",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/economico/cloudflake.git"
@@ -66,6 +67,13 @@
   },
   "overrides": {
     "vite": "npm:@voidzero-dev/vite-plus-core@8.3.8000"
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "npm",
+      "version": "12.2.3",
+      "onFail": "download"
+    }
   },
   "engines": {
     "node": ">=24"

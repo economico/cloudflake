@@ -1,3 +1,6 @@
+// Copyright 2026 Economico, LLC
+// SPDX-License-Identifier: MIT
+
 // Antithesis-style assertion taxonomy and campaign-level property/fault telemetry.
 
 export type AssertionKind =

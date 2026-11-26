@@ -1,3 +1,6 @@
+// Copyright 2026 Economico, LLC
+// SPDX-License-Identifier: MIT
+
 // In-process Cloudflare primitive simulators that model real edge failure modes:
 // - KV eventual consistency (stale reads, propagation lag, virtual-time TTLs)
 // - Durable Objects (durable vs ephemeral state, eviction, abort/rollback,

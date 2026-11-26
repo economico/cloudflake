@@ -1,3 +1,6 @@
+// Copyright 2026 Economico, LLC
+// SPDX-License-Identifier: MIT
+
 // Coverage-guided multiverse exploration (Antithesis-style snapshot + branching)
 // plus optional V8 precise branch coverage via Node's built-in inspector.
 import { Session } from 'node:inspector/promises'
