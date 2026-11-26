@@ -1,3 +1,6 @@
+// Copyright 2026 Economico, LLC
+// SPDX-License-Identifier: MIT
+
 // Local exploratory probing runner (TigerBeetle VOPR / Antithesis style) that
 // stays out of CI by default, explores deeply with swarm profiles, minimizes
 // failures, and produces structured, actionable guidance for coding agents.

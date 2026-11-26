@@ -1,3 +1,6 @@
+// Copyright 2026 Economico, LLC
+// SPDX-License-Identifier: MIT
+
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { testAsync } from '@hegeldev/hegel'

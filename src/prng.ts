@@ -1,3 +1,6 @@
+// Copyright 2026 Economico, LLC
+// SPDX-License-Identifier: MIT
+
 // 128-bit xoshiro128++ PRNG seeded via SplitMix64, with hierarchical named
 // stream branching and TigerBeetle-style workload/fault combinators.
 

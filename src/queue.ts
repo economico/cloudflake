@@ -1,3 +1,6 @@
+// Copyright 2026 Economico, LLC
+// SPDX-License-Identifier: MIT
+
 // Realistic Cloudflare Queues simulator: single- or multi-message batches,
 // partial batch ack/retry, delivery jitter/reordering, at-least-once duplicates,
 // bounded retries, and optional dead-letter queue routing.

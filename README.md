@@ -55,9 +55,9 @@ npx skills add economico/cloudflake
 
 If Cloudflake is already a dev dependency, the skill is in the package at `node_modules/cloudflake/skills/cloudflake/SKILL.md`. `npx skills experimental_sync` links skills from installed packages into your agent's skills directory, so the skill stays in step with the installed version.
 
-Without installing anything, tell your agent:
+Without installing anything, point your agent at [cloudflake.dev/skill.md](https://cloudflake.dev/skill.md):
 
-> Read `node_modules/cloudflake/skills/cloudflake/SKILL.md` (or https://github.com/economico/cloudflake/blob/main/skills/cloudflake/SKILL.md) and follow it. Write Cloudflake simulation tests for our queue consumer and Durable Objects. Check that duplicate delivery, retries and eviction cannot double-count, run a campaign of at least 500 seeds, and report any failing seed with its replay command.
+> Read https://cloudflake.dev/skill.md (or `node_modules/cloudflake/skills/cloudflake/SKILL.md`) and follow it. Write Cloudflake simulation tests for our queue consumer and Durable Objects. Check that duplicate delivery, retries and eviction cannot double-count, run a campaign of at least 500 seeds, and report any failing seed with its replay command.
 
 Good prompts name the property that must hold ("each payment posts exactly once"), the components involved, and how many seeds to explore. Ask the agent to break the guard deliberately and confirm the test fails, so you know the test can catch the bug.
 
@@ -180,4 +180,4 @@ Cloudflake comes out of [Economico](https://economi.co/?utm_source=github&utm_me
 
 ## License
 
-Apache License 2.0.
+Copyright (c) 2026 Economico, LLC. Licensed under the [MIT License](LICENSE).

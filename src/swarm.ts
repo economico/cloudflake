@@ -1,3 +1,6 @@
+// Copyright 2026 Economico, LLC
+// SPDX-License-Identifier: MIT
+
 // TigerBeetle VOPR-style Swarm Testing: randomize fault regimes per seed so
 // campaigns explore extreme corners of the state space instead of flat averages.
 import type { DelayDistribution, Prng } from './prng.js'

@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cloudflake — Deterministic simulation testing for Cloudflare Workers and Durable Objects</title>
+  <meta name="description" content="Seeded deterministic simulation testing for Cloudflare Workers, Durable Objects, Queues, KV, R2, and D1. Zero runtime dependencies in TypeScript, plus an optional Miniflare/workerd adapter.">
+  <link rel="canonical" href="https://cloudflake.dev/">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Cloudflake">
+  <meta property="og:title" content="Cloudflake — Deterministic simulation testing for Workers and Durable Objects">
+  <meta property="og:description" content="Explore failures in Cloudflare applications by varying request order, duplicate delivery, retries, and Durable Object eviction. Every failing seed replays deterministically.">
+  <meta property="og:url" content="https://cloudflake.dev/">
+  <meta property="og:image" content="https://cloudflake.dev/banner.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Cloudflake — Deterministic simulation testing for Workers and Durable Objects">
+  <meta name="twitter:description" content="Zero-dependency TypeScript DST engine and Miniflare/workerd adapter for Cloudflare Workers and Durable Objects.">
+  <meta name="twitter:image" content="https://cloudflake.dev/banner.png">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&display=swap">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="/">
+        <img src="/logo.png" alt="" width="32" height="32">
+        <span>Cloudflake</span>
+      </a>
+      <nav class="site-nav" aria-label="Primary">
+        <a href="#quickstart">Quick start</a>
+        <a href="#primitives">Primitives</a>
+        <a href="#workers">Workers &amp; Hegel</a>
+        <a href="#agent-skill">Agent skill</a>
+        <a href="https://github.com/economico/cloudflake">GitHub &#8599;</a>
+        <a class="nav-cta" href="/skill.md">/skill.md</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero">
+      <div class="container hero-grid">
+        <div class="hero-copy">
+          <p class="eyebrow">Open-source Cloudflare DST · TypeScript · Zero deps · Miniflare</p>
+          <h1>Deterministic simulation testing for Cloudflare.</h1>
+          <p class="lede">
+            Explore failures in Workers and Durable Objects by varying request order, duplicate delivery, retries, and eviction. Give Cloudflake a scenario, an invariant, and a seed—every failure replays identically.
+          </p>
+
+          <div class="codeblock-wrap" id="quickstart">
+            <pre class="codeblock" id="install-cmd">npm install -D cloudflake
+npm install -D miniflare@4   # optional: real Workers in workerd</pre>
+            <button class="copy-btn" type="button" data-copy-target="install-cmd" aria-label="Copy install commands">Copy</button>
+          </div>
+
+          <div class="hero-actions">
+            <a class="btn btn-primary" href="#agent-skill">Hand off to your coding agent</a>
+            <a class="btn btn-secondary" href="https://github.com/economico/cloudflake">View on GitHub &#8599;</a>
+            <a class="btn btn-secondary" href="https://www.npmjs.com/package/cloudflake">npm &#8599;</a>
+          </div>
+        </div>
+
+        <div class="hero-art">
+          <div class="hero-art-frame">
+            <img
+              src="/logo.png"
+              alt="Cloudflake cereal box illustration featuring a red cloud, bold black Cloud Flake lettering, pink cloud-shaped cereal flakes, and a lightning bolt shattering a red bowl"
+              fetchpriority="high"
+              width="440"
+              height="440">
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container">
+        <div class="section-head">
+          <p class="eyebrow">Seeded replay &amp; fault minimization</p>
+          <h2>Finds distributed bugs. Minimizes the fault trigger.</h2>
+          <p class="lede">
+            Built in the tradition of FoundationDB, TigerBeetle VOPR, and Antithesis—and pairable with <a href="https://hegel.dev/typescript">Hegel</a> for shrinking workload inputs—Cloudflake explores thousands of virtual-time schedules, delta-debugs injected faults, and prints an exact replay command.
+          </p>
+        </div>
+
+        <div class="codeblock-wrap codeblock-wrap--dark has-header">
+          <div class="codeblock-header">
+            <span>CLOUDFLAKE_PROBE=1 node test/probe.mjs</span>
+            <span>exit 1</span>
+          </div>
+          <pre class="codeblock codeblock--full"><span class="tok-fail">FAIL</span>  Cloudflake Exploratory Probe: payments-exploration
+      Explored 1,420 seeds, 38,910 steps in 0.42s (3,380 runs/s)
+      Invariant 'one posting per payment' failed on seed=17 (expected 56, got 63)
+
+<span class="tok-pink">Minimal fault trigger (minimized from 9 injected faults to 1):</span>
+  - t=14ms [duplicate] queue payments deliver batch #3 (msg-04)
+
+<span class="tok-dim">Hint: Duplicate delivery triggered this failure. Deduplicate writes by a stable idempotency key.</span>
+<span class="tok-dim">Replay deterministically: CLOUDFLAKE_SEED=17 CLOUDFLAKE_PROBE=1 node test/probe.mjs</span></pre>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container">
+        <div class="section-head">
+          <p class="eyebrow">Architecture</p>
+          <h2>In-process speed. Real workerd fidelity.</h2>
+          <p class="lede">
+            Start with zero-dependency TypeScript model tests at ~4.9M events/sec, then run the exact same scheduling API against real bundled Workers, SQLite Durable Objects, Queues, KV, R2, and D1 inside Miniflare and <code>workerd</code>.
+          </p>
+        </div>
+
+        <div class="card-grid">
+          <article class="card">
+            <span class="card-num">01 · Virtual event calendar</span>
+            <h3>Zero-dep TypeScript scheduler</h3>
+            <p>
+              Binary-heap virtual clock with 128-bit <code>xoshiro128++</code> PRNG streams, TigerBeetle-style swarm fault profiles (<code>sim.profile</code>), Antithesis assertions (<code>always</code>, <code>sometimes</code>, <code>reachable</code>), and Wing-Gong linearizability checks.
+            </p>
+          </article>
+
+          <article class="card">
+            <span class="card-num">02 · Cloudflare failure models</span>
+            <h3>Duplicates, resets &amp; evictions</h3>
+            <p>
+              Fast in-process simulators for Queue batches and DLQs, DO alarm retries, eventually consistent KV stale reads, Durable Object eviction and <code>blockConcurrencyWhile</code> gates, <code>waitUntil</code> drops, and ambiguous gray RPC failures.
+            </p>
+          </article>
+
+          <article class="card">
+            <span class="card-num">03 · Real workerd bindings</span>
+            <h3>Same API on real Workers</h3>
+            <p>
+              Drop in <code>cloudflake/miniflare</code> (<code>simulateWorkers</code>, <code>createBindingProxies</code>, <code>controlServiceBinding</code>, <code>doNemesis</code>) to drive real bindings on virtual time with zero application code changes.
+            </p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="primitives">
+      <div class="container">
+        <div class="section-head">
+          <p class="eyebrow">Control points</p>
+          <h2>Core DST engine and Workers adapter.</h2>
+          <p class="lede">Every source of Cloudflare nondeterminism sits behind one deterministic seed—from model tests to multi-Worker <code>workerd</code> campaigns.</p>
+        </div>
+
+        <div tabindex="0" role="region" aria-labelledby="primitives-caption" class="table-wrapper">
+          <table class="primitives-table">
+            <caption id="primitives-caption">Cloudflake core simulation APIs and Miniflare Workers adapter primitives</caption>
+            <thead>
+              <tr>
+                <th scope="col">API</th>
+                <th scope="col">Behavior</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">simulate / campaign</th>
+                <td>Run one seeded schedule or explore thousands of seeds with aggregated Antithesis property coverage (<code>always</code>, <code>sometimes</code>, <code>reachable</code>, <code>unreachable</code>) and failure bucketing.</td>
+              </tr>
+              <tr>
+                <th scope="row">sim.deliver / sim.profile</th>
+                <td>Inject seeded latency distributions (<code>uniform</code>, <code>exponential</code>, <code>pareto</code>, <code>bimodal</code>), zero-step drops, <code>1..maxDuplicates</code> extra deliveries, ambiguous gray failures, and per-seed swarm fault regimes.</td>
+              </tr>
+              <tr>
+                <th scope="row">simulatedQueue / Alarm / KV / DO</th>
+                <td>In-process simulators for multi-message Queue batches + DLQ, exponential-backoff alarms, stale KV reads + TTLs, DO eviction / <code>abort</code> / input gates, <code>waitUntil</code> drops, and outbound <code>fetch</code> faults.</td>
+              </tr>
+              <tr>
+                <th scope="row">HistoryRecorder / checkLinearizability</th>
+                <td>Wing-Gong linearizability checker supporting definite <code>ok</code>/<code>fail</code> and <code>indeterminate</code> ambiguous outcomes against a pure sequential reference model.</td>
+              </tr>
+              <tr>
+                <th scope="row">minimizeFaults / exploreMultiverse</th>
+                <td>Delta-debug a failing seed to the minimal subset of injected faults that still reproduces the bug, or branch from snapshots guided by coverage edges and assertions.</td>
+              </tr>
+              <tr>
+                <th scope="row">probe / probeWorkers</th>
+                <td>Local exploratory probers (auto-skip in CI unless <code>CLOUDFLAKE_PROBE=1</code>) that run time-budgeted campaigns, bucket failures, minimize faults, and print agent-ready diagnostic guidance.</td>
+              </tr>
+              <tr>
+                <th scope="row">simulateWorkers / createBindingProxies</th>
+                <td>Run real bundled Workers in <code>workerd</code> with drop-in Queue, KV, and Durable Object RPC proxies, synced virtual time (<code>controlServiceBinding</code>), <code>outboundFaultService</code>, and <code>doNemesis</code> eviction chaos.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="workers">
+      <div class="container two-col">
+        <div class="panel">
+          <p class="eyebrow">In-process model test</p>
+          <h3>Explore 1,000 schedules in milliseconds</h3>
+          <p>
+            Verify queue idempotency before spinning up a runtime. Remove the <code>posted.has(id)</code> guard to prove the campaign catches duplicate deliveries, then replay the failing seed.
+          </p>
+          <div class="codeblock-wrap">
+            <pre class="codeblock" id="model-code">import assert from 'node:assert/strict'
+import { campaign, simulate, simulatedQueue } from 'cloudflake'
+
+async function payments(sim) {
+  const posted = new Set()
+  let balance = 0
+  const queue = simulatedQueue(sim, 'payments', ({ messages }) => {
+    for (const { id, body } of messages) {
+      if (posted.has(id)) continue
+      posted.add(id)
+      balance += body.amount
+    }
+  }, { duplicate: 0.5 })
+
+  sim.invariant('one posting', () => assert.equal(balance, 7 * posted.size))
+  for (let i = 0; i &lt; 8; i++) await queue.send({ amount: 7 })
+  sim.onIdle('settled', () => assert.equal(balance, 56))
+}
+
+await campaign({ seed: 0, runs: 1000 }, payments)
+await simulate({ seed: 42, onStep: console.log }, payments)</pre>
+            <button class="copy-btn" type="button" data-copy-target="model-code" aria-label="Copy in-process model test">Copy</button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <p class="eyebrow">Real Workers &amp; Hegel</p>
+          <h3>Drive real bindings in <code>workerd</code></h3>
+          <p>
+            Graduate to SQLite Durable Objects, R2, D1, and Queues with <code>cloudflake/miniflare</code>—or pair with <a href="https://hegel.dev/typescript">Hegel</a> to shrink workload inputs and scheduling seeds together.
+          </p>
+          <div class="codeblock-wrap">
+            <pre class="codeblock" id="workers-code">import assert from 'node:assert/strict'
+import { simulateWorkers } from 'cloudflake/miniflare'
+
+await simulateWorkers(
+  { seed: 42 },
+  () => ({
+    modules: true,
+    scriptPath: './build/worker.mjs',
+    compatibilityDate: '2026-07-01',
+    durableObjects: { BOOK: { className: 'Book', useSQLite: true } },
+    r2Buckets: ['FILES'],
+  }),
+  (sim, runtime) => {
+    sim.deliver('upload invoice 17', async () => {
+      const res = await runtime.dispatchFetch(
+        'https://app.test/invoices/17',
+        { method: 'PUT', body: 'invoice data' },
+      )
+      assert.ok(res.ok)
+    }, { maxDelay: 50, duplicate: 1 })
+
+    sim.onIdle('one stored invoice', async () => {
+      const bucket = await runtime.getR2Bucket('FILES')
+      assert.equal((await bucket.list()).objects.length, 1)
+    })
+  },
+)</pre>
+            <button class="copy-btn" type="button" data-copy-target="workers-code" aria-label="Copy Workers simulation example">Copy</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="agent-skill">
+      <div class="container two-col">
+        <div class="panel panel--tint">
+          <p class="eyebrow">Coding agents</p>
+          <h2>Hand Cloudflake to your agent.</h2>
+          <p>
+            Install the skill directly into Claude Code, Codex, Cursor, or Antigravity, or paste the prompt below—your agent fetches <a href="/skill.md"><code>https://cloudflake.dev/skill.md</code></a> and writes, verifies, and replays simulation tests for your Workers.
+          </p>
+
+          <div class="codeblock-wrap">
+            <pre class="codeblock" id="skills-install">npx skills add economico/cloudflake</pre>
+            <button class="copy-btn" type="button" data-copy-target="skills-install" aria-label="Copy skills install command">Copy</button>
+          </div>
+
+          <div class="codeblock-wrap">
+            <pre class="codeblock codeblock--wrap" id="agent-prompt">Follow https://cloudflake.dev/skill.md to write Cloudflake simulation tests for our queue consumer and Durable Objects. Check that duplicate delivery, retries, and eviction cannot double-count, break the guard deliberately to confirm the test catches it, run a campaign of at least 500 seeds, and report any failing seed with its replay command.</pre>
+            <button class="copy-btn" type="button" data-copy-target="agent-prompt" aria-label="Copy agent prompt">Copy</button>
+          </div>
+        </div>
+
+        <section aria-labelledby="faq-heading">
+          <p class="eyebrow">Questions</p>
+          <h3 id="faq-heading">Before you run your first campaign</h3>
+          <div class="faq-list">
+            <details>
+              <summary>How fast is the in-process scheduler?</summary>
+              <div class="faq-body">
+                The core scheduler runs in process on Node 24+ with zero runtime dependencies over a binary-heap event calendar—around 4.9 million events per second on the isolated benchmark—so thousands of model seeds finish in seconds.
+              </div>
+            </details>
+            <details>
+              <summary>Does a seed replay workerd runs identically?</summary>
+              <div class="faq-body">
+                Cloudflake controls virtual time, PRNG streams, scheduled events, checkpoints, and <code>controlServiceBinding</code> hooks (<code>Date.now()</code>, <code>Math.random()</code>, <code>crypto.randomUUID()</code>, alarms, and <code>waitUntil</code>). Native <code>workerd</code> internals outside those hooks need injected clocks, entropy, or service doubles for exact replay.
+              </div>
+            </details>
+            <details>
+              <summary>How does Cloudflake pair with Hegel?</summary>
+              <div class="faq-body">
+                Draw both your workload values (amounts, payloads, operation lists) and the Cloudflake scheduling seed with <code>@hegeldev/hegel</code> so Hegel shrinks both together. Save the minimized inputs alongside the failing seed for permanent regressions.
+              </div>
+            </details>
+            <details>
+              <summary>How should I split CI tests vs. local probing?</summary>
+              <div class="faq-body">
+                Keep fixed small-seed <code>campaign()</code> runs and regression seeds in CI. Put longer exploratory <code>probe()</code> and <code>probeWorkers()</code> scripts locally—they skip automatically when <code>CI</code> is set unless you pass <code>CLOUDFLAKE_PROBE=1</code>.
+              </div>
+            </details>
+          </div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p class="eyebrow">Built by Economico</p>
+      <div class="footer-economico">
+        <a class="economico-banner-link" href="https://economi.co/?utm_source=cloudflake_dev&utm_medium=site&utm_campaign=cloudflake">
+          <img
+            src="/economico.gif"
+            alt="Economico: the business context layer for founders and their agents"
+            loading="lazy"
+            width="800"
+            height="260">
+        </a>
+        <p>
+          Cloudflake comes out of <a href="https://economi.co/?utm_source=cloudflake_dev&utm_medium=site&utm_campaign=cloudflake">Economico</a>, the business context layer for founders and their agents—where your customers, agreements, activity, and money live in one structured record your own agents operate, with real books and evidence behind every answer.
+        </p>
+      </div>
+
+      <div class="footer-meta">
+        <span>&copy; 2026 Economico, LLC · MIT License</span>
+        <div class="footer-links">
+          <a href="https://github.com/economico/cloudflake">GitHub</a>
+          <a href="https://www.npmjs.com/package/cloudflake">npm</a>
+          <a href="/skill.md">/skill.md</a>
+          <a href="https://hegel.dev/typescript">Hegel</a>
+          <a href="https://blofeld.dev">Blofeld</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    document.addEventListener("click", async (event) => {
+      const btn = event.target.closest("[data-copy-target]");
+      if (!btn) return;
+      const target = document.getElementById(btn.dataset.copyTarget);
+      if (!target) return;
+      try {
+        await navigator.clipboard.writeText(target.textContent.trim());
+        const prev = btn.textContent;
+        btn.textContent = "Copied";
+        setTimeout(() => { btn.textContent = prev; }, 1600);
+      } catch {
+        // Clipboard permission unavailable; user can select manually.
+      }
+    });
+  </script>
+</body>
+</html>

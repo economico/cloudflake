@@ -1,0 +1,13 @@
+{
+  "name": "cloudflake-site",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "sync": "mkdir -p public/references && cp ../skills/cloudflake/SKILL.md public/skill.md && cp ../skills/cloudflake/references/patterns.md public/references/patterns.md && cp ../skills/cloudflake/references/further-reading.md public/references/further-reading.md && cp ../assets/logo.png public/logo.png && cp ../assets/banner.png public/banner.png && cp ../assets/economico.gif public/economico.gif",
+    "dev": "npm run sync && wrangler dev --port 8788",
+    "deploy": "npm run sync && wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}

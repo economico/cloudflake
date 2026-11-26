@@ -32,7 +32,7 @@ export default defineConfig({
     semi: false,
     singleQuote: true,
     printWidth: 100,
-    ignorePatterns: ['dist/**', 'package-lock.json'],
+    ignorePatterns: ['dist/**', 'package-lock.json', 'site/**'],
   },
   lint: {
     jsPlugins: [{ name: 'vite-plus', specifier: 'vite-plus/oxlint-plugin' }],
@@ -43,7 +43,7 @@ export default defineConfig({
       typeAware: true,
       typeCheck: true,
     },
-    ignorePatterns: ['dist/**'],
+    ignorePatterns: ['dist/**', 'site/**'],
   },
   staged: {
     '*': 'vp check --fix',
