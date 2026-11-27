@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Cloudflake — Deterministic simulation testing for Cloudflare Workers and Durable Objects</title>
   <meta name="description" content="Seeded deterministic simulation testing for Cloudflare Workers, Durable Objects, Queues, KV, R2, and D1. Zero runtime dependencies in TypeScript, plus an optional Miniflare/workerd adapter.">
+  <meta name="author" content="Economico, LLC">
   <link rel="canonical" href="https://cloudflake.dev/">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 
@@ -35,8 +36,9 @@
       </a>
       <nav class="site-nav" aria-label="Primary">
         <a href="#quickstart">Quick start</a>
+        <a href="#how-it-works">How it works</a>
         <a href="#primitives">Primitives</a>
-        <a href="#workers">Workers &amp; Hegel</a>
+        <a href="#workers">Scenarios</a>
         <a href="#agent-skill">Agent skill</a>
         <a href="https://github.com/economico/cloudflake">GitHub &#8599;</a>
         <a class="nav-cta" href="/skill.md">/skill.md</a>
@@ -80,30 +82,67 @@ npm install -D miniflare@4   # optional: real Workers in workerd</pre>
       </div>
     </section>
 
-    <section class="section">
+    <section class="section" id="how-it-works">
       <div class="container">
         <div class="section-head">
-          <p class="eyebrow">Seeded replay &amp; fault minimization</p>
-          <h2>Finds distributed bugs. Minimizes the fault trigger.</h2>
+          <p class="eyebrow">Live walkthrough</p>
+          <h2>Watch how Cloudflake breaks and proves your app.</h2>
           <p class="lede">
-            Built in the tradition of FoundationDB, TigerBeetle VOPR, and Antithesis—and pairable with <a href="https://hegel.dev/typescript">Hegel</a> for shrinking workload inputs—Cloudflake explores thousands of virtual-time schedules, delta-debugs injected faults, and prints an exact replay command.
+            Built in the tradition of FoundationDB, TigerBeetle VOPR, and Antithesis—and pairable with <a href="https://hegel.dev/typescript">Hegel</a> for shrinking workload inputs. Switch scenarios or step frame-by-frame to watch virtual time, fault minimization, Durable Object eviction, and linearizability checks in action.
           </p>
         </div>
 
-        <div class="codeblock-wrap codeblock-wrap--dark has-header">
-          <div class="codeblock-header">
-            <span>CLOUDFLAKE_PROBE=1 node test/probe.mjs</span>
-            <span>exit 1</span>
+        <div class="demo-shell" data-demo-root>
+          <div class="demo-bar">
+            <div class="spec-tablist demo-tablist" role="tablist" focusgroup="tablist nomemory" aria-label="Cloudflake simulation scenarios">
+              <button class="spec-tab" type="button" role="tab" id="demo-tab-queue" data-demo-mode="queue" aria-selected="true" focusgroupstart tabindex="0">01 · Queue &amp; minimizer</button>
+              <button class="spec-tab" type="button" role="tab" id="demo-tab-do" data-demo-mode="do" aria-selected="false" tabindex="-1">02 · DO eviction</button>
+              <button class="spec-tab" type="button" role="tab" id="demo-tab-races" data-demo-mode="races" aria-selected="false" tabindex="-1">03 · Races &amp; gray faults</button>
+              <button class="spec-tab" type="button" role="tab" id="demo-tab-multiverse" data-demo-mode="multiverse" aria-selected="false" tabindex="-1">04 · Multiverse &amp; Hegel</button>
+            </div>
+            <div class="demo-controls" aria-label="Animation playback controls">
+              <button class="demo-btn" type="button" data-demo-toggle>Pause</button>
+              <button class="demo-btn" type="button" data-demo-step>Step</button>
+              <button class="demo-btn" type="button" data-demo-restart>Replay</button>
+            </div>
           </div>
-          <pre class="codeblock codeblock--full"><span class="tok-fail">FAIL</span>  Cloudflake Exploratory Probe: payments-exploration
-      Explored 1,420 seeds, 38,910 steps in 0.42s (3,380 runs/s)
-      Invariant 'one posting per payment' failed on seed=17 (expected 56, got 63)
 
-<span class="tok-pink">Minimal fault trigger (minimized from 9 injected faults to 1):</span>
-  - t=14ms [duplicate] queue payments deliver batch #3 (msg-04)
+          <div class="demo-stage" role="tabpanel" aria-labelledby="demo-tab-queue" data-demo-stage>
+            <div class="demo-stage-head">
+              <code class="demo-cli" data-demo-cli>$ CLOUDFLAKE_PROBE=1 node test/probe.mjs</code>
+              <div class="demo-stage-meta">
+                <span class="demo-step-label" data-demo-counter>Step 1 / 5</span>
+                <button class="demo-jump" type="button" data-demo-jump hidden>View code &#8595;</button>
+              </div>
+            </div>
 
-<span class="tok-dim">Hint: Duplicate delivery triggered this failure. Deduplicate writes by a stable idempotency key.</span>
-<span class="tok-dim">Replay deterministically: CLOUDFLAKE_SEED=17 CLOUDFLAKE_PROBE=1 node test/probe.mjs</span></pre>
+            <div class="demo-progress" aria-hidden="true">
+              <div class="demo-progress-fill" data-demo-progress></div>
+            </div>
+
+            <div class="demo-grid">
+              <div class="demo-terminal">
+                <div class="demo-pane-label">
+                  <span>Virtual calendar &amp; probe trace</span>
+                  <span class="demo-badge" data-demo-badge>SEED · SWARM</span>
+                </div>
+                <ol class="demo-log" data-demo-log></ol>
+              </div>
+
+              <div class="demo-inspector">
+                <div class="demo-pane-label demo-pane-label--light">
+                  <span data-demo-visual-title>Virtual calendar &amp; fault minimizer</span>
+                  <span class="demo-mode-pill" data-demo-visual-tag>Zero-dep core</span>
+                </div>
+                <div class="demo-visual" data-demo-visual></div>
+              </div>
+            </div>
+
+            <div class="demo-footer">
+              <p class="demo-caption" data-demo-caption></p>
+              <div class="demo-dots" role="group" aria-label="Jump to animation step" data-demo-dots></div>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -199,74 +238,331 @@ npm install -D miniflare@4   # optional: real Workers in workerd</pre>
     </section>
 
     <section class="section" id="workers">
-      <div class="container two-col">
-        <div class="panel">
-          <p class="eyebrow">In-process model test</p>
-          <h3>Explore 1,000 schedules in milliseconds</h3>
-          <p>
-            Verify queue idempotency before spinning up a runtime. Remove the <code>posted.has(id)</code> guard to prove the campaign catches duplicate deliveries, then replay the failing seed.
+      <div class="container">
+        <div class="section-head">
+          <p class="eyebrow">Scenarios · workerd · Hegel</p>
+          <h2>Model tests, real bindings &amp; shrunk regressions.</h2>
+          <p class="lede">
+            Write a scenario once against Cloudflake's virtual calendar—from fast in-process models to real Miniflare bindings and Hegel property tests—and let Cloudflake hunt down every ordering and fault bug.
           </p>
-          <div class="codeblock-wrap">
-            <pre class="codeblock" id="model-code">import assert from 'node:assert/strict'
+        </div>
+
+        <ol class="step-flow" aria-label="How Cloudflake executes and minimizes a deterministic simulation">
+          <li>
+            <span class="card-num">01 · Schedule</span>
+            <h3>Drive virtual time</h3>
+            <p>Queues, alarms, fetches, and <code>Date.now()</code> / <code>new Date()</code> advance instantaneously on a seeded binary-heap calendar.</p>
+          </li>
+          <li>
+            <span class="card-num">02 · Inject faults</span>
+            <h3>Swarm edge chaos</h3>
+            <p>Each seed draws a randomized <code>sim.profile</code> injecting duplicates, drops, stale KV reads, DO evictions, and gray RPC resets.</p>
+          </li>
+          <li>
+            <span class="card-num">03 · Assert</span>
+            <h3>Check every step</h3>
+            <p>Verifies <code>sim.invariant()</code> after every event, Antithesis <code>sometimes()</code> coverage, and Wing-Gong linearizability.</p>
+          </li>
+          <li>
+            <span class="card-num">04 · Minimize</span>
+            <h3>Isolate &amp; replay</h3>
+            <p><code>minimizeFaults()</code> delta-debugs injected faults to the smallest trigger and prints an exact single-seed replay command.</p>
+          </li>
+        </ol>
+
+        <div class="spec-tabs" data-spec-tabs>
+          <div class="spec-tablist" role="tablist" focusgroup="tablist nomemory" aria-label="Cloudflake scenario code examples">
+            <button class="spec-tab" type="button" role="tab" id="tab-queue" aria-selected="true" focusgroupstart tabindex="0">Queue duplicates</button>
+            <button class="spec-tab" type="button" role="tab" id="tab-do" aria-selected="false" tabindex="-1">DO eviction (workerd)</button>
+            <button class="spec-tab" type="button" role="tab" id="tab-kv" aria-selected="false" tabindex="-1">Races &amp; linearizability</button>
+            <button class="spec-tab" type="button" role="tab" id="tab-hegel" aria-selected="false" tabindex="-1">Hegel input + seed</button>
+          </div>
+
+          <div class="spec-panels">
+            <div class="spec-panel" role="tabpanel" aria-labelledby="tab-queue">
+              <div class="tab-panel-inner">
+                <div class="spec-meta">
+                  <p>
+                    Explore 1,000 duplicate-delivery queue schedules in milliseconds. Remove the <code>posted.has(id)</code> guard to prove the invariant catches double-posting, then replay the failing seed.
+                  </p>
+                  <code class="spec-cmd">await campaign({ seed: 0, runs: 1000 }, payments)</code>
+                </div>
+                <div class="spec-diagram-strip">
+                  <svg class="spec-diagram-svg" viewBox="0 0 640 108" role="img" aria-label="Payments queue flow: producer sends 8 messages into simulatedQueue which injects red dashed duplicate deliveries into consumer; invariant checks balance equals 7 times posted size">
+                    <defs>
+                      <marker id="cf-arr-ink" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                        <path d="M 0 1 L 7 4 L 0 7 z" fill="#000000"/>
+                      </marker>
+                      <marker id="cf-arr-red" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                        <path d="M 0 1 L 7 4 L 0 7 z" fill="#D32F2F"/>
+                      </marker>
+                    </defs>
+                    <g class="viz-svg-node">
+                      <rect x="20" y="38" width="110" height="32"/>
+                      <text x="75" y="58" text-anchor="middle">queue.send()</text>
+                    </g>
+                    <line x1="130" y1="54" x2="206" y2="54" stroke="#000000" stroke-width="1.5" marker-end="url(#cf-arr-ink)"/>
+                    <text class="viz-svg-edge-label" x="168" y="45" text-anchor="middle">8 × $7</text>
+                    <g class="viz-svg-node viz-svg-node--active">
+                      <rect x="210" y="38" width="136" height="32"/>
+                      <text x="278" y="58" text-anchor="middle">simulatedQueue</text>
+                    </g>
+                    <line x1="346" y1="54" x2="430" y2="54" stroke="#000000" stroke-width="1.5" marker-end="url(#cf-arr-ink)"/>
+                    <text class="viz-svg-edge-label" x="388" y="45" text-anchor="middle">deliver()</text>
+                    <path d="M 278 38 C 296 10, 464 10, 488 36" fill="none" stroke="#D32F2F" stroke-width="1.8" stroke-dasharray="5 4" marker-end="url(#cf-arr-red)"/>
+                    <text class="viz-svg-attack-label is-firing" x="388" y="14" text-anchor="middle">duplicate: 0.5 (re-deliver msg-04)</text>
+                    <g class="viz-svg-node">
+                      <rect x="434" y="38" width="122" height="32"/>
+                      <text x="495" y="58" text-anchor="middle">consumer()</text>
+                    </g>
+                    <text class="viz-svg-sublabel is-firing" x="495" y="92" text-anchor="middle">invariant: balance == 7 * posted.size</text>
+                  </svg>
+                  <div class="spec-diagram-legend">
+                    <span><i class="legend-solid"></i> Seeded virtual delivery</span>
+                    <span><i class="legend-dashed"></i> Injected duplicate fault (delta-debugged by <code>minimizeFaults</code>)</span>
+                  </div>
+                </div>
+                <div class="codeblock-wrap">
+                  <pre class="codeblock" id="model-code">import assert from 'node:assert/strict'
 import { campaign, simulate, simulatedQueue } from 'cloudflake'
 
 async function payments(sim) {
   const posted = new Set()
   let balance = 0
-  const queue = simulatedQueue(sim, 'payments', ({ messages }) => {
-    for (const { id, body } of messages) {
-      if (posted.has(id)) continue
-      posted.add(id)
-      balance += body.amount
-    }
-  }, { duplicate: 0.5 })
+  const queue = simulatedQueue(
+    sim,
+    'payments',
+    ({ messages }) =&gt; {
+      for (const { id, body } of messages) {
+        if (posted.has(id)) continue // remove to see seed=17 fail
+        posted.add(id)
+        balance += body.amount
+      }
+    },
+    { duplicate: 0.5 },
+  )
 
-  sim.invariant('one posting', () => assert.equal(balance, 7 * posted.size))
+  sim.invariant('one posting per payment', () =&gt; assert.equal(balance, 7 * posted.size))
   for (let i = 0; i &lt; 8; i++) await queue.send({ amount: 7 })
-  sim.onIdle('settled', () => assert.equal(balance, 56))
+  sim.onIdle('all payments settled', () =&gt; assert.equal(balance, 56))
 }
 
 await campaign({ seed: 0, runs: 1000 }, payments)
 await simulate({ seed: 42, onStep: console.log }, payments)</pre>
-            <button class="copy-btn" type="button" data-copy-target="model-code" aria-label="Copy in-process model test">Copy</button>
-          </div>
-        </div>
+                  <button class="copy-btn" type="button" data-copy-target="model-code" aria-label="Copy queue duplicates test">Copy</button>
+                </div>
+              </div>
+            </div>
 
-        <div class="panel">
-          <p class="eyebrow">Real Workers &amp; Hegel</p>
-          <h3>Drive real bindings in <code>workerd</code></h3>
-          <p>
-            Graduate to SQLite Durable Objects, R2, D1, and Queues with <code>cloudflake/miniflare</code>—or pair with <a href="https://hegel.dev/typescript">Hegel</a> to shrink workload inputs and scheduling seeds together.
-          </p>
-          <div class="codeblock-wrap">
-            <pre class="codeblock" id="workers-code">import assert from 'node:assert/strict'
+            <div class="spec-panel" role="tabpanel" aria-labelledby="tab-do" hidden="until-found">
+              <div class="tab-panel-inner">
+                <div class="spec-meta">
+                  <p>
+                    Run real SQLite Durable Objects and R2/D1/KV bindings inside <code>workerd</code> via <code>cloudflake/miniflare</code>, evicting live instances mid-flight with <code>doNemesis</code> or <code>unsafeEvictDurableObject</code>.
+                  </p>
+                  <code class="spec-cmd">node examples/counter.mjs 42</code>
+                </div>
+                <div class="spec-diagram-strip">
+                  <svg class="spec-diagram-svg" viewBox="0 0 640 112" role="img" aria-label="Durable Object eviction diagram: dispatchFetch sends duplicate increments to Worker and Durable Object; red dashed doNemesis wipes ephemeral JS RAM while SQLite storage survives">
+                    <defs>
+                      <marker id="cf-arr-ink2" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                        <path d="M 0 1 L 7 4 L 0 7 z" fill="#000000"/>
+                      </marker>
+                      <marker id="cf-arr-red2" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                        <path d="M 0 1 L 7 4 L 0 7 z" fill="#D32F2F"/>
+                      </marker>
+                    </defs>
+                    <g class="viz-svg-node">
+                      <rect x="18" y="40" width="120" height="32"/>
+                      <text x="78" y="60" text-anchor="middle">dispatchFetch</text>
+                    </g>
+                    <line x1="138" y1="56" x2="202" y2="56" stroke="#000000" stroke-width="1.5" marker-end="url(#cf-arr-ink2)"/>
+                    <text class="viz-svg-edge-label" x="170" y="36" text-anchor="middle">duplicate: 1</text>
+                    <g class="viz-svg-node">
+                      <rect x="206" y="40" width="92" height="32"/>
+                      <text x="252" y="60" text-anchor="middle">Worker</text>
+                    </g>
+                    <line x1="298" y1="48" x2="374" y2="28" stroke="#000000" stroke-width="1.5" marker-end="url(#cf-arr-ink2)"/>
+                    <line x1="298" y1="64" x2="374" y2="84" stroke="#000000" stroke-width="1.5" marker-end="url(#cf-arr-ink2)"/>
+                    <g class="viz-svg-node viz-svg-node--active">
+                      <rect x="378" y="12" width="116" height="32"/>
+                      <text x="436" y="32" text-anchor="middle">DO JS memory</text>
+                    </g>
+                    <g class="viz-svg-node viz-svg-node--ok">
+                      <rect x="378" y="68" width="116" height="32"/>
+                      <text x="436" y="88" text-anchor="middle">DO SQLite</text>
+                    </g>
+                    <line x1="618" y1="28" x2="498" y2="28" stroke="#D32F2F" stroke-width="1.8" stroke-dasharray="5 4" marker-end="url(#cf-arr-red2)"/>
+                    <text class="viz-svg-attack-label is-firing" x="622" y="17" text-anchor="end">doNemesis evict!</text>
+                    <text class="viz-svg-sublabel is-firing" x="506" y="88" text-anchor="start">survives ✓</text>
+                  </svg>
+                  <div class="spec-diagram-legend">
+                    <span><i class="legend-solid"></i> Real <code>workerd</code> binding calls</span>
+                    <span><i class="legend-dashed"></i> Seeded eviction wiping ephemeral instance state</span>
+                  </div>
+                </div>
+                <div class="codeblock-wrap">
+                  <pre class="codeblock" id="workers-code">import assert from 'node:assert/strict'
 import { simulateWorkers } from 'cloudflake/miniflare'
 
 await simulateWorkers(
   { seed: 42 },
-  () => ({
+  () =&gt; ({
     modules: true,
     scriptPath: './build/worker.mjs',
     compatibilityDate: '2026-07-01',
+    unsafeInspectDurableObjects: true,
     durableObjects: { BOOK: { className: 'Book', useSQLite: true } },
     r2Buckets: ['FILES'],
   }),
-  (sim, runtime) => {
-    sim.deliver('upload invoice 17', async () => {
-      const res = await runtime.dispatchFetch(
-        'https://app.test/invoices/17',
-        { method: 'PUT', body: 'invoice data' },
-      )
+  (sim, runtime) =&gt; {
+    sim.deliver('upload invoice 17', async () =&gt; {
+      const res = await runtime.dispatchFetch('https://app.test/invoices/17', {
+        method: 'PUT',
+        body: 'invoice data',
+      })
       assert.ok(res.ok)
     }, { maxDelay: 50, duplicate: 1 })
 
-    sim.onIdle('one stored invoice', async () => {
+    sim.after(sim.int(40), 'evict book DO', () =&gt;
+      runtime.unsafeEvictDurableObject('worker', 'Book', { name: 'default' }),
+    )
+
+    sim.onIdle('one stored invoice', async () =&gt; {
       const bucket = await runtime.getR2Bucket('FILES')
       assert.equal((await bucket.list()).objects.length, 1)
     })
   },
 )</pre>
-            <button class="copy-btn" type="button" data-copy-target="workers-code" aria-label="Copy Workers simulation example">Copy</button>
+                  <button class="copy-btn" type="button" data-copy-target="workers-code" aria-label="Copy Workers eviction example">Copy</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="spec-panel" role="tabpanel" aria-labelledby="tab-kv" hidden="until-found">
+              <div class="tab-panel-inner">
+                <div class="spec-meta">
+                  <p>
+                    Interleave concurrent clients across I/O checkpoints, inject eventually consistent KV stale reads and ambiguous gray RPC resets, and verify every history with <code>checkLinearizability</code>.
+                  </p>
+                  <code class="spec-cmd">checkLinearizability(history.entries, counterModel)</code>
+                </div>
+                <div class="codeblock-wrap">
+                  <pre class="codeblock" id="linearizability-code">import assert from 'node:assert/strict'
+import { HistoryRecorder, checkLinearizability, client, simulate } from 'cloudflake'
+
+await simulate({ seed: 9 }, async (sim) =&gt; {
+  const history = new HistoryRecorder(sim)
+  let total = 0
+
+  await Promise.all([
+    client(sim, 'A', async (cp) =&gt; {
+      const op = history.invoke('A', 'add', 5)
+      const seen = total
+      await cp(2, 'A after read')
+      total = seen + 5
+      history.complete(op, 'ok', total)
+    }),
+    client(sim, 'B', async (cp) =&gt; {
+      const op = history.invoke('B', 'add', 10)
+      const seen = total
+      await cp(1, 'B after read')
+      total = seen + 10
+      history.complete(op, 'ok', total) // or 'indeterminate' on gray RPC reset
+    }),
+  ])
+
+  sim.onIdle('linearizable', () =&gt; {
+    const res = checkLinearizability(history.entries, {
+      init: () =&gt; 0,
+      step: (s, op, arg) =&gt; [s + arg, s + arg],
+    })
+    assert.ok(res.linearizable, res.explanation)
+  })
+})</pre>
+                  <button class="copy-btn" type="button" data-copy-target="linearizability-code" aria-label="Copy linearizability example">Copy</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="spec-panel" role="tabpanel" aria-labelledby="tab-hegel" hidden="until-found">
+              <div class="tab-panel-inner">
+                <div class="spec-meta">
+                  <p>
+                    Draw workload values <em>and</em> the Cloudflake scheduling seed with <a href="https://hegel.dev/typescript">Hegel</a> so Hegel shrinks individual inputs and the delivery order simultaneously.
+                  </p>
+                  <code class="spec-cmd">npm run test:hegel</code>
+                </div>
+                <div class="codeblock-wrap">
+                  <pre class="codeblock" id="hegel-code">import assert from 'node:assert/strict'
+import { testAsync } from '@hegeldev/hegel'
+import * as g from '@hegeldev/hegel/generators'
+import { simulate, simulatedQueue } from 'cloudflake'
+
+await testAsync(
+  async (tc) =&gt; {
+    const amounts = tc.draw(
+      g.arrays(g.integers({ minValue: 1, maxValue: 1000 }), { minSize: 1, maxSize: 12 }),
+    )
+    const seed = tc.draw(g.integers({ minValue: 0, maxValue: 0xffffffff }))
+
+    await simulate({ seed }, async (sim) =&gt; {
+      const seen = new Set()
+      let settled = 0
+      const q = simulatedQueue(sim, 'payouts', ({ messages }) =&gt; {
+        for (const { id, body } of messages) {
+          if (seen.has(id)) continue
+          seen.add(id)
+          settled += body.amount
+        }
+      }, { duplicate: 1 })
+
+      for (const amount of amounts) await q.send({ amount })
+      const expected = amounts.reduce((a, b) =&gt; a + b, 0)
+      sim.onIdle('exact sum', () =&gt; assert.equal(settled, expected))
+    })
+  },
+  { testCases: 100 },
+)</pre>
+                  <button class="copy-btn" type="button" data-copy-target="hegel-code" aria-label="Copy Hegel property test">Copy</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="two-col spec-aux-grid">
+          <div class="panel">
+            <p class="eyebrow">Local exploratory probing</p>
+            <h3>Keep CI fast. Probe deeply locally.</h3>
+            <p>
+              <code>probe()</code> and <code>probeWorkers()</code> skip automatically when <code>CI</code> is set unless <code>CLOUDFLAKE_PROBE=1</code> is passed—running time-budgeted swarm campaigns locally and printing minimized replay commands.
+            </p>
+            <div class="codeblock-wrap">
+              <pre class="codeblock" id="probe-cmd">await probe({
+  name: 'payments-exploration',
+  durationMs: 15_000,
+  healAt: 500,
+  replayCommand: 'CLOUDFLAKE_SEED={seed} CLOUDFLAKE_PROBE=1 node test/probe.mjs',
+}, paymentsScenario)</pre>
+              <button class="copy-btn" type="button" data-copy-target="probe-cmd" aria-label="Copy probe example">Copy</button>
+            </div>
+            <p>
+              Override duration or replay a failing seed directly via <code>CLOUDFLAKE_PROBE_MS</code>, <code>CLOUDFLAKE_PROBE_RUNS</code>, or <code>CLOUDFLAKE_SEED</code>.
+            </p>
+          </div>
+
+          <div class="panel">
+            <p class="eyebrow">Swarm fault regimes</p>
+            <h3>Three ways Cloudflake breaks your edge app</h3>
+            <ul class="tactic-list">
+              <li><strong>At-least-once &amp; reordering:</strong> duplicates Queue batches, retries alarms with backoff, and varies latency across <code>uniform</code>, <code>exponential</code>, <code>pareto</code>, and <code>bimodal</code> distributions.</li>
+              <li><strong>Eviction &amp; ephemeral loss:</strong> <code>doNemesis</code> evicts Durable Objects mid-flight and <code>simulatedWaitUntil</code> drops background tasks before completion.</li>
+              <li><strong>Stale reads &amp; gray failures:</strong> <code>simulatedKV</code> serves stale edge values during propagation lag and <code>ambiguous</code> resets commit server-side before returning an error.</li>
+            </ul>
+            <p>
+              Call <code>sim.heal()</code> (or pass <code>healAt</code>) to pause chaos cleanly so retries drain before <code>sim.onIdle()</code> convergence assertions run.
+            </p>
           </div>
         </div>
       </div>
@@ -305,7 +601,7 @@ await simulateWorkers(
             <details>
               <summary>Does a seed replay workerd runs identically?</summary>
               <div class="faq-body">
-                Cloudflake controls virtual time, PRNG streams, scheduled events, checkpoints, and <code>controlServiceBinding</code> hooks (<code>Date.now()</code>, <code>Math.random()</code>, <code>crypto.randomUUID()</code>, alarms, and <code>waitUntil</code>). Native <code>workerd</code> internals outside those hooks need injected clocks, entropy, or service doubles for exact replay.
+                Cloudflake controls virtual time, PRNG streams, scheduled events, checkpoints, and <code>controlServiceBinding</code> hooks (<code>Date.now()</code>, <code>new Date()</code>, <code>Math.random()</code>, <code>crypto.randomUUID()</code>, alarms, and <code>waitUntil</code>). Native <code>workerd</code> internals outside those hooks need injected clocks, entropy, or service doubles for exact replay.
               </div>
             </details>
             <details>
@@ -371,6 +667,799 @@ await simulateWorkers(
         // Clipboard permission unavailable; user can select manually.
       }
     });
+
+    for (const root of document.querySelectorAll("[data-spec-tabs]")) {
+      const tablist = root.querySelector('[role="tablist"]');
+      const tabs = Array.from(tablist.querySelectorAll('[role="tab"]'));
+      const panels = Array.from(root.querySelectorAll('[role="tabpanel"]'));
+
+      const selectTab = (selected) => {
+        for (const tab of tabs) {
+          const isSelected = tab === selected;
+          tab.ariaSelected = String(isSelected);
+          tab.toggleAttribute("focusgroupstart", isSelected);
+          tab.tabIndex = isSelected ? 0 : -1;
+        }
+        for (const panel of panels) {
+          const isMatch = panel.getAttribute("aria-labelledby") === selected.id;
+          if (isMatch) {
+            panel.removeAttribute("hidden");
+          } else {
+            panel.hidden = "until-found";
+          }
+        }
+        try {
+          selected.scrollIntoView({ block: "nearest", inline: "nearest", container: "nearest" });
+        } catch {
+          selected.scrollIntoView({ block: "nearest", inline: "nearest" });
+        }
+      };
+
+      for (const tab of tabs) {
+        tab.addEventListener("click", () => selectTab(tab));
+        tab.addEventListener("focus", () => selectTab(tab));
+      }
+
+      root.addEventListener("beforematch", (event) => {
+        const panel = event.target.closest('[role="tabpanel"]');
+        if (!panel) return;
+        const tab = document.getElementById(panel.getAttribute("aria-labelledby"));
+        if (tab) selectTab(tab);
+      });
+
+      if (!Object.hasOwn(HTMLElement.prototype, "focusGroup")) {
+        tablist.addEventListener("keydown", (event) => {
+          const idx = tabs.indexOf(document.activeElement);
+          if (idx === -1) return;
+          const isRtl = getComputedStyle(tablist).direction === "rtl";
+          let next = null;
+          if (event.key === "ArrowRight") next = (idx + (isRtl ? -1 : 1) + tabs.length) % tabs.length;
+          else if (event.key === "ArrowLeft") next = (idx + (isRtl ? 1 : -1) + tabs.length) % tabs.length;
+          else if (event.key === "Home") next = 0;
+          else if (event.key === "End") next = tabs.length - 1;
+          if (next !== null) {
+            event.preventDefault();
+            tabs[next].focus();
+          }
+        });
+      }
+
+      if (!CSS.supports("animation-timeline", "scroll()")) {
+        const first = tabs[0];
+        const last = tabs[tabs.length - 1];
+        if (first && last) {
+          const observer = new IntersectionObserver((entries) => {
+            for (const { target, intersectionRatio } of entries) {
+              tablist.classList.toggle(target === first ? "more-start" : "more-end", intersectionRatio < 1);
+            }
+          }, { root: tablist, threshold: 1, rootMargin: "1px" });
+          observer.observe(first);
+          observer.observe(last);
+        }
+      }
+    }
+
+    (() => {
+      const root = document.querySelector("[data-demo-root]");
+      if (!root) return;
+
+      const tablist = root.querySelector('[role="tablist"]');
+      const tabs = Array.from(tablist.querySelectorAll('[role="tab"]'));
+      const toggleBtn = root.querySelector("[data-demo-toggle]");
+      const stepBtn = root.querySelector("[data-demo-step]");
+      const restartBtn = root.querySelector("[data-demo-restart]");
+      const stageEl = root.querySelector("[data-demo-stage]");
+      const cliEl = root.querySelector("[data-demo-cli]");
+      const counterEl = root.querySelector("[data-demo-counter]");
+      const jumpBtn = root.querySelector("[data-demo-jump]");
+      const progressEl = root.querySelector("[data-demo-progress]");
+      const badgeEl = root.querySelector("[data-demo-badge]");
+      const logEl = root.querySelector("[data-demo-log]");
+      const visualTitleEl = root.querySelector("[data-demo-visual-title]");
+      const visualTagEl = root.querySelector("[data-demo-visual-tag]");
+      const visualEl = root.querySelector("[data-demo-visual]");
+      const captionEl = root.querySelector("[data-demo-caption]");
+      const dotsEl = root.querySelector("[data-demo-dots]");
+
+      const MODES = {
+        queue: {
+          cli: "$ CLOUDFLAKE_PROBE=1 node test/probe.mjs",
+          visualTitle: "Virtual calendar & fault minimizer",
+          visualTag: "Zero-dep core",
+          specTab: "tab-queue",
+          steps: [
+            {
+              badge: "SEED · SWARM",
+              tone: "info",
+              log: [
+                { tag: "SEED", text: "seed=17 · xoshiro128++ drew swarm profile (pareto, dup=0.45)", kind: "info" },
+                { tag: "ENQ", text: "simulatedQueue('payments') queued 8 messages × $7", kind: "ok" }
+              ],
+              caption: "Each seed draws an isolated PRNG stream and TigerBeetle-style swarm fault profile—exploring extreme latency and duplicate regimes.",
+              render: () => `
+                <div class="viz-card">
+                  <div class="viz-label">Swarm fault profile (seed=17)</div>
+                  <div class="viz-chips">
+                    <span class="viz-chip viz-chip--pulse">duplicate: 45%</span>
+                    <span class="viz-chip viz-chip--active">delay: pareto</span>
+                    <span class="viz-chip">drop: 10%</span>
+                    <span class="viz-chip">batch: 1..3</span>
+                  </div>
+                </div>
+                <div class="viz-card">
+                  <div class="viz-label">Active checks</div>
+                  <div class="viz-kv"><span>Safety invariant</span><strong>balance == 7 * posted.size</strong></div>
+                  <div class="viz-kv"><span>Antithesis property</span><strong>sometimes('duplicate delivered')</strong></div>
+                </div>`
+            },
+            {
+              badge: "VIRTUAL TIME",
+              tone: "info",
+              log: [
+                { tag: "t=0ms", text: "batch #1 delivered (msg-01..03) → balance=$21 ✓", kind: "ok" },
+                { tag: "t=6ms", text: "batch #2 delivered (msg-04..05) → balance=$35 ✓", kind: "ok" },
+                { tag: "FAULT", text: "9 seeded faults queued across calendar (0ms wall wait)", kind: "dim" }
+              ],
+              caption: "Time jumps directly from event to event on a binary-heap calendar—zero setTimeout sleeps, ~4.9M events/sec in process.",
+              render: () => `
+                <div class="viz-card">
+                  <div class="viz-label">Virtual clock jumps</div>
+                  <div class="viz-chips">
+                    <span class="viz-chip viz-chip--ok">t=0ms</span>
+                    <span class="viz-chip viz-chip--ok">t=6ms</span>
+                    <span class="viz-chip viz-chip--active">t=14ms (next)</span>
+                  </div>
+                </div>
+                <div class="viz-card">
+                  <div class="viz-label">Injected faults on seed=17 (9 active)</div>
+                  <div class="viz-bars">${Array.from({ length: 9 }, (_, i) => `<span class="viz-bar ${i === 4 ? "viz-bar--keep" : ""}"></span>`).join("")}</div>
+                  <div class="viz-note">Invariant checked after setup and every completed event.</div>
+                </div>`
+            },
+            {
+              badge: "FAIL · INVARIANT",
+              tone: "fail",
+              log: [
+                { tag: "t=14ms", text: "[duplicate] batch #3 redelivered msg-04 ($7)", kind: "fail" },
+                { tag: "FAIL", text: "invariant 'one posting per payment': expected 56, got 63", kind: "fail" },
+                { tag: "DELTA", text: "Running minimizeFaults() across 9 injected faults…", kind: "info" }
+              ],
+              caption: "A duplicate queue delivery double-posts msg-04—Cloudflake halts immediately and delta-debugs the 9 injected faults.",
+              render: () => `
+                <div class="viz-card viz-card--fail">
+                  <div class="viz-label">Violation on seed=17 at t=14ms</div>
+                  <div class="viz-kv"><span>Invariant</span><strong class="viz-red">one posting per payment</strong></div>
+                  <div class="viz-kv"><span>Observed</span><strong>balance=$63 != $56</strong></div>
+                </div>
+                <div class="viz-card">
+                  <div class="viz-label">Delta-debugging 9 faults → minimal trigger</div>
+                  <div class="viz-bars">${Array.from({ length: 9 }, (_, i) => `<span class="viz-bar ${i === 4 ? "viz-bar--fail" : "viz-bar--drop"}"></span>`).join("")}</div>
+                  <div class="viz-note">Dropping non-causal jitter, drops, and batch splits…</div>
+                </div>`
+            },
+            {
+              badge: "MINIMIZED 9→1",
+              tone: "fail",
+              log: [
+                { tag: "MIN", text: "Minimal fault trigger (minimized from 9 faults to 1):", kind: "info" },
+                { tag: "1.", text: "t=14ms [duplicate] queue payments deliver batch #3 (msg-04)", kind: "fail" },
+                { tag: "HINT", text: "Deduplicate writes by a stable idempotency key (posted.has)", kind: "info" },
+                { tag: "REPLAY", text: "CLOUDFLAKE_SEED=17 CLOUDFLAKE_PROBE=1 node test/probe.mjs", kind: "dim" }
+              ],
+              caption: "minimizeFaults() strips 8 irrelevant faults and hands you (or your coding agent) the exact 1-fault reproducer and replay command.",
+              render: () => `
+                <div class="viz-card viz-card--fail">
+                  <div class="viz-label">Minimal fault trigger (9 → 1)</div>
+                  <div class="viz-bars viz-bars--shrunk">
+                    <span class="viz-bar viz-bar--fail"></span>
+                  </div>
+                  <div class="viz-kv"><span>Single trigger</span><strong>t=14ms [duplicate] msg-04</strong></div>
+                  <div class="viz-kv"><span>Replay seed</span><strong>CLOUDFLAKE_SEED=17</strong></div>
+                  <div class="viz-kv"><span>Root cause</span><strong>Missing idempotency guard</strong></div>
+                </div>`
+            },
+            {
+              badge: "PASS · 1,000",
+              tone: "ok",
+              log: [
+                { tag: "FIX", text: "Restored `if (posted.has(id)) continue` guard", kind: "ok" },
+                { tag: "RUN", text: "campaign({ seed: 0, runs: 1000 }) · 38,910 steps in 0.42s", kind: "ok" },
+                { tag: "COV", text: "sometimes('duplicate delivered') satisfied 492 / 1,000 seeds ✓", kind: "ok" }
+              ],
+              caption: "With the idempotency guard restored, 1,000 seeded schedules pass in 0.42s—and Antithesis coverage proves duplicates actually fired.",
+              render: () => `
+                <div class="viz-card viz-card--ok">
+                  <div class="viz-label">Campaign report</div>
+                  <div class="viz-kv"><span>Seeds explored</span><strong>1,000 passed (0 failed)</strong></div>
+                  <div class="viz-kv"><span>sometimes('duplicate')</span><strong class="viz-green">hit 492× ✓</strong></div>
+                  <div class="viz-kv"><span>Wall time</span><strong>0.42s (2,380 runs/s)</strong></div>
+                </div>
+                <div class="viz-status viz-status--ok">PASS · invariant + Antithesis coverage verified</div>`
+            }
+          ]
+        },
+        do: {
+          cli: "$ node examples/counter.mjs 42",
+          visualTitle: "Durable Object storage vs. memory",
+          visualTag: "workerd + doNemesis",
+          specTab: "tab-do",
+          steps: [
+            {
+              badge: "BOOT WORKERD",
+              tone: "info",
+              log: [
+                { tag: "BOOT", text: "simulateWorkers({ seed: 42 }) started local workerd runtime", kind: "ok" },
+                { tag: "SYNC", text: "controlServiceBinding synced Date.now(), new Date() & alarms", kind: "info" }
+              ],
+              caption: "simulateWorkers runs your real bundled Worker and SQLite Durable Object inside local workerd on Cloudflake's virtual calendar.",
+              render: () => renderDoGraph({
+                phase: "boot",
+                ram: "count: 0",
+                sql: "rows: [] (0)",
+                statusTone: "info",
+                statusText: "WORKERD READY · Counter DO cold-started"
+              })
+            },
+            {
+              badge: "DELIVER ×2",
+              tone: "ok",
+              log: [
+                { tag: "t=1ms", text: 'POST /inc ("a"), ("b"), ("c") with duplicate: 1, maxDelay: 5', kind: "ok" },
+                { tag: "SQL", text: 'INSERT OR IGNORE deduplicated duplicate ("b") → count=3 ✓', kind: "ok" }
+              ],
+              caption: "sim.deliver delivers duplicate increments across virtual milliseconds; SQLite primary-key dedupe keeps the count exact.",
+              render: () => renderDoGraph({
+                phase: "deliver",
+                ram: "cached: 3",
+                sql: 'rows: ["a","b","c"] (3)',
+                statusTone: "ok",
+                statusText: "DUPLICATE DEDUPED · SQLite == 3"
+              })
+            },
+            {
+              badge: "EVICT · CHAOS",
+              tone: "fail",
+              log: [
+                { tag: "t=3ms", text: "doNemesis → unsafeEvictDurableObject('Counter', 'shared')", kind: "fail" },
+                { tag: "RAM", text: "Ephemeral JS instance fields wiped; SQLite storage intact", kind: "info" },
+                { tag: "COV", text: "sometimes('do evicted') recorded ✓", kind: "ok" }
+              ],
+              caption: "Mid-flight Durable Object eviction destroys every JS instance field—catching bugs where state wasn't persisted to SQLite.",
+              render: () => renderDoGraph({
+                phase: "evict",
+                ram: "WIPED (evicted!)",
+                sql: 'rows: ["a","b","c"] (3)',
+                statusTone: "fail",
+                statusText: "DO EVICTED · JS RAM lost, SQLite durable"
+              })
+            },
+            {
+              badge: "COLD BOOT",
+              tone: "info",
+              log: [
+                { tag: "t=4ms", text: 'Late duplicate POST /inc ("a") cold-boots Counter constructor', kind: "info" },
+                { tag: "SQL", text: 'INSERT OR IGNORE ("a") → no-op, count remains 3 ✓', kind: "ok" }
+              ],
+              caption: "A late redelivery hits the freshly booted DO instance—only durable SQLite state prevents double-counting after eviction.",
+              render: () => renderDoGraph({
+                phase: "reload",
+                ram: "rehydrated from SQL",
+                sql: 'rows: ["a","b","c"] (3)',
+                statusTone: "info",
+                statusText: "COLD BOOT RECOVERED · late duplicate ignored"
+              })
+            },
+            {
+              badge: "CONVERGED",
+              tone: "ok",
+              log: [
+                { tag: "IDLE", text: "sim.onIdle → GET / returned 3 (expected 3) ✓", kind: "ok" },
+                { tag: "DONE", text: "seed=42 passed · 6 events · sometimes('do evicted') ✓", kind: "ok" }
+              ],
+              caption: "Once the virtual calendar drains, sim.onIdle verifies final convergence—no fragile hardcoded sleep timestamps.",
+              render: () => renderDoGraph({
+                phase: "pass",
+                ram: "count: 3",
+                sql: 'rows: ["a","b","c"] (3)',
+                statusTone: "ok",
+                statusText: "PASS · exact once-per-request count after eviction"
+              })
+            }
+          ]
+        },
+        races: {
+          cli: "$ vp test run test/dst.test.mjs",
+          visualTitle: "Checkpoints, KV lag & linearizability",
+          visualTag: "Wing-Gong checker",
+          specTab: "tab-kv",
+          steps: [
+            {
+              badge: "CHECKPOINT",
+              tone: "info",
+              log: [
+                { tag: "CLI A", text: "read balance=100 → parked at checkpoint('after-read')", kind: "info" },
+                { tag: "CLI B", text: "read balance=100 → parked at checkpoint('after-read')", kind: "info" }
+              ],
+              caption: "Cooperative clients pause deterministically at I/O checkpoints so Cloudflake can interleave read-modify-write races.",
+              render: () => renderRaceGraph("parked")
+            },
+            {
+              badge: "LOST UPDATE",
+              tone: "fail",
+              log: [
+                { tag: "CLI B", text: "resumed first → wrote 110 (100 + 10)", kind: "ok" },
+                { tag: "CLI A", text: "resumed second → overwrote 105 (100 + 5)!", kind: "fail" },
+                { tag: "FAIL", text: "checkLinearizability: no sequential order yields 105", kind: "fail" }
+              ],
+              caption: "Seeded wakeup order exposes the classic lost update—HistoryRecorder + checkLinearizability proves no serial history matches.",
+              render: () => renderRaceGraph("lost")
+            },
+            {
+              badge: "STALE KV",
+              tone: "fail",
+              log: [
+                { tag: "KV", text: "simulatedKV.put('bal', 110) · propagationDelayMs=60", kind: "dim" },
+                { tag: "FAULT", text: "t=18ms [kv_stale_read] edge get('bal') returned 100!", kind: "fail" },
+                { tag: "HINT", text: "Move read-after-write coordination to a Durable Object or D1", kind: "info" }
+              ],
+              caption: "simulatedKV models Cloudflare KV eventual consistency—surfacing stale edge reads during the propagation window.",
+              render: () => renderRaceGraph("stale")
+            },
+            {
+              badge: "GRAY FAILURE",
+              tone: "fail",
+              log: [
+                { tag: "RPC", text: "t=24ms [do_rpc_ambiguous] DO committed +10, socket reset!", kind: "fail" },
+                { tag: "HIST", text: "HistoryRecorder marked op #2 outcome = indeterminate", kind: "info" },
+                { tag: "CHECK", text: "Wing-Gong checker tests both committed & uncommitted paths", kind: "info" }
+              ],
+              caption: "Ambiguous gray failures commit on the callee before throwing to the caller—catching unsafe blind retries.",
+              render: () => renderRaceGraph("gray")
+            },
+            {
+              badge: "LINEARIZABLE",
+              tone: "ok",
+              log: [
+                { tag: "FIX", text: "Moved increment into DO transaction + idempotency key", kind: "ok" },
+                { tag: "CHECK", text: "checkLinearizability(history, model) → linearizable: true ✓", kind: "ok" }
+              ],
+              caption: "Inside a transactional Durable Object with idempotency keys, every interleaved and indeterminate history stays 100% linearizable.",
+              render: () => renderRaceGraph("ok")
+            }
+          ]
+        },
+        multiverse: {
+          cli: "$ npm run test:hegel",
+          visualTitle: "Coverage branching & dual shrinking",
+          visualTag: "Hegel + Antithesis",
+          specTab: "tab-hegel",
+          steps: [
+            {
+              badge: "DRAW INPUTS",
+              tone: "info",
+              log: [
+                { tag: "HEGEL", text: "tc.draw(amounts) → [412, 899, 17, 630, 205]", kind: "info" },
+                { tag: "SEED", text: "tc.draw(seed) → 819402 (Cloudflake schedule seed)", kind: "info" }
+              ],
+              caption: "Hegel generates both the workload inputs and the Cloudflake scheduling seed so both can be minimized together.",
+              render: () => renderMultiverseGraph("root")
+            },
+            {
+              badge: "SNAPSHOT",
+              tone: "info",
+              log: [
+                { tag: "COVER", text: "sim.cover('dlq-retry') hit a new branch edge!", kind: "ok" },
+                { tag: "SNAP", text: "exploreMultiverse saved midpoint snapshot S1 (SQLite/KV/R2)", kind: "info" }
+              ],
+              caption: "When execution hits a novel coverage edge or fault state, exploreMultiverse snapshots state (or clones Miniflare persist dirs).",
+              render: () => renderMultiverseGraph("snap")
+            },
+            {
+              badge: "BRANCH ×3",
+              tone: "info",
+              log: [
+                { tag: "FORK", text: "Branched S1 → S1a, S1b, S1c under fresh swarm seeds", kind: "info" },
+                { tag: "COV", text: "Unique coverage edges: 14 → 23 (steering toward rare states)", kind: "ok" }
+              ],
+              caption: "Antithesis-style branching explores alternate futures from interesting mid-run snapshots instead of restarting from zero.",
+              render: () => renderMultiverseGraph("branch")
+            },
+            {
+              badge: "FAIL · EDGE",
+              tone: "fail",
+              log: [
+                { tag: "S1b", text: "Scripted Workers AI returned malformed JSON before D1 write", kind: "fail" },
+                { tag: "FAIL", text: "assert.equal(d1Rows.length, 0) failed (partial row written)", kind: "fail" }
+              ],
+              caption: "Branch S1b hits an unhandled malformed AI payload during retry, leaving a corrupted D1 row behind.",
+              render: () => renderMultiverseGraph("fail")
+            },
+            {
+              badge: "SHRUNK",
+              tone: "ok",
+              log: [
+                { tag: "SHRINK", text: "Hegel shrunk amounts [412, 899, 17, 630, 205] → [1]", kind: "ok" },
+                { tag: "REGR", text: "Pinned regression: amounts=[1], seed=14 (replays in 4ms) ✓", kind: "ok" }
+              ],
+              caption: "Keep the minimized Hegel inputs together with the Cloudflake seed as a permanent, instant regression test in CI.",
+              render: () => renderMultiverseGraph("shrunk")
+            }
+          ]
+        }
+      };
+
+      function renderDoGraph({ phase, ram, sql, statusTone, statusText }) {
+        const deliverActive = phase === "deliver" || phase === "reload";
+        const evictFiring = phase === "evict";
+        const ramClass = phase === "evict"
+          ? "viz-svg-node viz-svg-node--fail"
+          : phase === "reload" || phase === "pass"
+            ? "viz-svg-node viz-svg-node--ok"
+            : "viz-svg-node viz-svg-node--active";
+        const sqlClass = phase === "boot"
+          ? "viz-svg-node"
+          : "viz-svg-node viz-svg-node--ok";
+        return `
+          <div class="viz-card ${evictFiring ? "viz-card--fail" : phase === "pass" ? "viz-card--ok" : ""}">
+            <div class="viz-label">workerd runtime · Counter Durable Object</div>
+            <svg class="viz-svg viz-svg--wide" viewBox="0 0 420 132" role="img" aria-label="Durable Object diagram showing Client calling Worker and Durable Object JS RAM versus SQLite storage with red dashed doNemesis eviction">
+              <defs>
+                <marker id="do-arr-ink" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                  <path d="M 0 1 L 7 4 L 0 7 z" fill="#4A4A4A"/>
+                </marker>
+                <marker id="do-arr-ok" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                  <path d="M 0 1 L 7 4 L 0 7 z" fill="#1B7A43"/>
+                </marker>
+                <marker id="do-arr-red" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                  <path d="M 0 1 L 7 4 L 0 7 z" fill="#D32F2F"/>
+                </marker>
+              </defs>
+              <line class="viz-valid-edge ${deliverActive ? "is-active" : ""}" x1="76" y1="66" x2="116" y2="66" marker-end="${deliverActive ? "url(#do-arr-ok)" : "url(#do-arr-ink)"}"/>
+              <text class="viz-svg-edge-label ${deliverActive ? "is-active" : ""}" x="96" y="56" text-anchor="middle">${phase === "reload" ? "dup" : "POST"}</text>
+              <line class="viz-valid-edge ${phase === "deliver" ? "is-active" : ""}" x1="186" y1="56" x2="232" y2="34" marker-end="${phase === "deliver" ? "url(#do-arr-ok)" : "url(#do-arr-ink)"}"/>
+              <line class="viz-valid-edge ${phase === "deliver" || phase === "pass" ? "is-active" : ""}" x1="186" y1="76" x2="232" y2="98" marker-end="${phase === "deliver" || phase === "pass" ? "url(#do-arr-ok)" : "url(#do-arr-ink)"}"/>
+              <path class="viz-valid-edge ${phase === "reload" ? "is-active" : ""}" d="M 280 82 L 280 50" fill="none" marker-end="${phase === "reload" ? "url(#do-arr-ok)" : "url(#do-arr-ink)"}"/>
+              <text class="viz-svg-edge-label ${phase === "reload" ? "is-active" : ""}" x="287" y="70" text-anchor="start">hydrate</text>
+              <line class="viz-illegal-edge ${evictFiring ? "is-firing" : ""}" x1="408" y1="32" x2="332" y2="32" stroke="#D32F2F" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#do-arr-red)"/>
+              <text class="viz-svg-attack-label ${evictFiring ? "is-firing" : ""}" x="412" y="18" text-anchor="end">doNemesis!</text>
+              <text class="viz-svg-sublabel ${evictFiring ? "is-firing" : ""}" x="412" y="48" text-anchor="end">evict()</text>
+              <g class="viz-svg-node">
+                <rect x="8" y="50" width="68" height="32"/>
+                <text x="42" y="70" text-anchor="middle">Client</text>
+              </g>
+              <g class="viz-svg-node">
+                <rect x="120" y="50" width="66" height="32"/>
+                <text x="153" y="70" text-anchor="middle">Worker</text>
+              </g>
+              <g class="${ramClass}">
+                <rect x="236" y="16" width="90" height="32"/>
+                <text x="281" y="36" text-anchor="middle">JS RAM</text>
+              </g>
+              <g class="${sqlClass}">
+                <rect x="236" y="84" width="90" height="32"/>
+                <text x="281" y="104" text-anchor="middle">SQLite</text>
+              </g>
+            </svg>
+          </div>
+          <div class="viz-split">
+            <div class="viz-card viz-card--compact ${evictFiring ? "viz-card--fail" : ""}">
+              <div class="viz-label">Ephemeral JS RAM</div>
+              <div class="viz-code">${ram}</div>
+            </div>
+            <div class="viz-card viz-card--compact ${phase === "pass" ? "viz-card--ok" : ""}">
+              <div class="viz-label">Durable SQLite</div>
+              <div class="viz-code">${sql}</div>
+            </div>
+          </div>
+          <div class="viz-status viz-status--${statusTone}">${statusText}</div>`;
+      }
+
+      function renderRaceGraph(stage) {
+        const lost = stage === "lost";
+        const stale = stage === "stale";
+        const gray = stage === "gray";
+        const ok = stage === "ok";
+        const tactic = (num, title, detail, active) => `
+          <div class="viz-tactic ${active ? "viz-tactic--active" : ""}">
+            <span class="viz-tactic-num">0${num}</span>
+            <div><strong>${title}</strong><span>${detail}</span></div>
+          </div>`;
+        return `
+          <div class="viz-card ${lost || stale || gray ? "viz-card--fail" : ok ? "viz-card--ok" : ""}">
+            <div class="viz-label">Concurrent clients &amp; fault boundary</div>
+            <svg class="viz-svg viz-svg--wide" viewBox="0 0 420 150" role="img" aria-label="Concurrency diagram showing Client A and Client B hitting a checkpoint barrier and state store with red dashed lost update, stale KV read, and ambiguous RPC reset faults">
+              <defs>
+                <marker id="rc-arr-ink" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                  <path d="M 0 1 L 7 4 L 0 7 z" fill="#4A4A4A"/>
+                </marker>
+                <marker id="rc-arr-ok" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                  <path d="M 0 1 L 7 4 L 0 7 z" fill="#1B7A43"/>
+                </marker>
+                <marker id="rc-arr-red" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                  <path d="M 0 1 L 7 4 L 0 7 z" fill="#D32F2F"/>
+                </marker>
+              </defs>
+              <text class="viz-svg-edge-label" x="176" y="12" text-anchor="middle">checkpoint()</text>
+              <line x1="176" y1="18" x2="176" y2="124" stroke="#BDBDBD" stroke-width="1.5" stroke-dasharray="3 3"/>
+              <line class="viz-valid-edge ${ok ? "is-active" : ""}" x1="94" y1="38" x2="262" y2="58" marker-end="${ok ? "url(#rc-arr-ok)" : "url(#rc-arr-ink)"}"/>
+              <line class="viz-valid-edge ${ok ? "is-active" : ""}" x1="94" y1="98" x2="262" y2="78" marker-end="${ok ? "url(#rc-arr-ok)" : "url(#rc-arr-ink)"}"/>
+              <path class="viz-illegal-edge ${lost ? "is-firing" : ""}" d="M 176 38 C 216 18, 240 20, 264 50" fill="none" stroke="#D32F2F" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#rc-arr-red)"/>
+              <text class="viz-svg-attack-label ${lost ? "is-firing" : ""}" x="242" y="18" text-anchor="middle">overwrite 105!</text>
+              <path class="viz-illegal-edge ${stale || gray ? "is-firing" : ""}" d="M 264 90 C 228 122, 134 122, 98 106" fill="none" stroke="#D32F2F" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#rc-arr-red)"/>
+              <text class="viz-svg-attack-label ${stale || gray ? "is-firing" : ""}" x="196" y="140" text-anchor="middle">${gray ? "RPC reset (committed!)" : "stale KV: 100!"}</text>
+              <g class="viz-svg-node ${stage === "parked" ? "viz-svg-node--active" : ""}">
+                <rect x="12" y="22" width="82" height="32"/>
+                <text x="53" y="42" text-anchor="middle">Client A</text>
+              </g>
+              <g class="viz-svg-node ${stage === "parked" ? "viz-svg-node--active" : ""}">
+                <rect x="12" y="82" width="82" height="32"/>
+                <text x="53" y="102" text-anchor="middle">Client B</text>
+              </g>
+              <g class="viz-svg-node ${lost || stale || gray ? "viz-svg-node--fail" : ok ? "viz-svg-node--ok" : ""}">
+                <rect x="266" y="50" width="138" height="36"/>
+                <text x="335" y="72" text-anchor="middle">${ok ? "DO tx (115 ✓)" : lost ? "State: 105 (!)" : stale ? "KV lag: 60ms" : gray ? "Committed!" : "KV / DO"}</text>
+              </g>
+            </svg>
+          </div>
+          <div class="viz-tactics">
+            ${tactic(1, "Checkpoint", "lost update", lost)}
+            ${tactic(2, "KV stale", "60ms lag", stale)}
+            ${tactic(3, "Gray RPC", "indeterminate", gray)}
+          </div>`;
+      }
+
+      function renderMultiverseGraph(stage) {
+        const isSnap = stage === "snap" || stage === "branch" || stage === "fail" || stage === "shrunk";
+        const isBranch = stage === "branch" || stage === "fail" || stage === "shrunk";
+        const isFail = stage === "fail";
+        const isShrunk = stage === "shrunk";
+        return `
+          <div class="viz-card ${isFail ? "viz-card--fail" : isShrunk ? "viz-card--ok" : ""}">
+            <div class="viz-label">Multiverse snapshot tree &amp; Hegel shrinking</div>
+            <svg class="viz-svg viz-svg--wide" viewBox="0 0 420 124" role="img" aria-label="Multiverse snapshot tree branching from root S0 to snapshot S1 and three alternate futures S1a, S1b, and S1c">
+              <defs>
+                <marker id="mv-arr-ink" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                  <path d="M 0 1 L 7 4 L 0 7 z" fill="#4A4A4A"/>
+                </marker>
+                <marker id="mv-arr-ok" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                  <path d="M 0 1 L 7 4 L 0 7 z" fill="#1B7A43"/>
+                </marker>
+                <marker id="mv-arr-red" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                  <path d="M 0 1 L 7 4 L 0 7 z" fill="#D32F2F"/>
+                </marker>
+              </defs>
+              <line class="viz-valid-edge ${isSnap ? "is-active" : ""}" x1="78" y1="62" x2="148" y2="62" marker-end="${isSnap ? "url(#mv-arr-ok)" : "url(#mv-arr-ink)"}"/>
+              <text class="viz-svg-edge-label ${isSnap ? "is-active" : ""}" x="113" y="53" text-anchor="middle">cover()</text>
+              <line class="viz-valid-edge ${isBranch ? "is-active" : ""}" x1="226" y1="54" x2="306" y2="24" marker-end="${isBranch ? "url(#mv-arr-ok)" : "url(#mv-arr-ink)"}"/>
+              <line class="${isFail ? "viz-illegal-edge is-firing" : "viz-valid-edge"}" x1="226" y1="62" x2="306" y2="62" stroke="${isFail ? "#D32F2F" : "#4A4A4A"}" stroke-width="${isFail ? "2.2" : "1.5"}" stroke-dasharray="${isFail ? "5 4" : ""}" marker-end="${isFail ? "url(#mv-arr-red)" : "url(#mv-arr-ink)"}"/>
+              <line class="viz-valid-edge ${isBranch ? "is-active" : ""}" x1="226" y1="70" x2="306" y2="100" marker-end="${isBranch ? "url(#mv-arr-ok)" : "url(#mv-arr-ink)"}"/>
+              <g class="viz-svg-node ${stage === "root" ? "viz-svg-node--active" : ""}">
+                <rect x="14" y="46" width="64" height="32"/>
+                <text x="46" y="66" text-anchor="middle">S0</text>
+              </g>
+              <g class="viz-svg-node ${stage === "snap" ? "viz-svg-node--active" : isBranch ? "viz-svg-node--ok" : ""}">
+                <rect x="152" y="46" width="74" height="32"/>
+                <text x="189" y="66" text-anchor="middle">S1 snap</text>
+              </g>
+              <g class="viz-svg-node ${stage === "branch" ? "viz-svg-node--ok" : ""}">
+                <rect x="310" y="8" width="92" height="28"/>
+                <text x="356" y="26" text-anchor="middle">S1a · ok</text>
+              </g>
+              <g class="viz-svg-node ${isFail ? "viz-svg-node--fail" : isShrunk ? "viz-svg-node--ok" : ""}">
+                <rect x="310" y="48" width="92" height="28"/>
+                <text x="356" y="66" text-anchor="middle">${isFail ? "S1b · FAIL" : isShrunk ? "seed=14 ✓" : "S1b"}</text>
+              </g>
+              <g class="viz-svg-node ${stage === "branch" ? "viz-svg-node--ok" : ""}">
+                <rect x="310" y="88" width="92" height="28"/>
+                <text x="356" y="106" text-anchor="middle">S1c · ok</text>
+              </g>
+            </svg>
+          </div>
+          <div class="viz-card viz-card--compact ${isShrunk ? "viz-card--ok" : ""}">
+            <div class="viz-kv"><span>Hegel inputs</span><strong>${isShrunk ? "[412, 899, 17, 630, 205] → [1]" : "[412, 899, 17, 630, 205]"}</strong></div>
+            <div class="viz-kv"><span>Schedule seed</span><strong>${isShrunk ? "819402 → 14 (regression)" : "819402"}</strong></div>
+          </div>`;
+      }
+
+      const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      let modeKey = "queue";
+      let stepIdx = reducedMotion ? MODES.queue.steps.length - 1 : 0;
+      let playing = !reducedMotion;
+      let inView = true;
+      let timer = null;
+      const STEP_MS = 2700;
+
+      const syncToggleLabel = () => {
+        toggleBtn.textContent = playing ? "Pause" : "Play";
+      };
+
+      const stopTimer = () => {
+        if (timer !== null) {
+          clearInterval(timer);
+          timer = null;
+        }
+      };
+
+      const startTimer = () => {
+        stopTimer();
+        if (!playing || !inView) return;
+        timer = setInterval(() => {
+          const total = MODES[modeKey].steps.length;
+          stepIdx = (stepIdx + 1) % total;
+          render();
+        }, STEP_MS);
+      };
+
+      const render = () => {
+        const mode = MODES[modeKey];
+        const step = mode.steps[stepIdx];
+        const total = mode.steps.length;
+
+        cliEl.textContent = mode.cli;
+        counterEl.textContent = `Step ${stepIdx + 1} / ${total}`;
+        visualTitleEl.textContent = mode.visualTitle;
+        visualTagEl.textContent = mode.visualTag;
+        badgeEl.textContent = step.badge;
+        badgeEl.dataset.tone = step.tone;
+        progressEl.style.transform = `scaleX(${(stepIdx + 1) / total})`;
+        captionEl.textContent = step.caption;
+
+        if (mode.specTab) {
+          jumpBtn.hidden = false;
+          jumpBtn.dataset.targetTab = mode.specTab;
+        } else {
+          jumpBtn.hidden = true;
+        }
+
+        logEl.innerHTML = step.log
+          .map(
+            (entry, i) => `
+            <li class="demo-log-row demo-log-row--${entry.kind}" style="--row-i:${i}">
+              <span class="demo-log-tag">${entry.tag}</span>
+              <span class="demo-log-text">${entry.text}</span>
+            </li>`
+          )
+          .join("");
+
+        visualEl.innerHTML = step.render();
+
+        dotsEl.innerHTML = mode.steps
+          .map(
+            (_, i) => `
+            <button
+              type="button"
+              class="demo-dot ${i === stepIdx ? "is-active" : ""}"
+              data-step-dot="${i}"
+              aria-label="Go to step ${i + 1} of ${total}"
+              aria-current="${i === stepIdx ? "step" : "false"}"></button>`
+          )
+          .join("");
+      };
+
+      const selectMode = (nextKey, userInitiated) => {
+        modeKey = nextKey;
+        stepIdx = reducedMotion && !playing ? MODES[modeKey].steps.length - 1 : 0;
+        for (const tab of tabs) {
+          const isSelected = tab.dataset.demoMode === modeKey;
+          tab.ariaSelected = String(isSelected);
+          tab.toggleAttribute("focusgroupstart", isSelected);
+          tab.tabIndex = isSelected ? 0 : -1;
+          if (isSelected) {
+            stageEl.setAttribute("aria-labelledby", tab.id);
+          }
+          if (isSelected && userInitiated) {
+            try {
+              tab.scrollIntoView({ block: "nearest", inline: "nearest", container: "nearest" });
+            } catch {
+              tab.scrollIntoView({ block: "nearest", inline: "nearest" });
+            }
+          }
+        }
+        render();
+        startTimer();
+      };
+
+      for (const tab of tabs) {
+        tab.addEventListener("click", () => selectMode(tab.dataset.demoMode, true));
+        tab.addEventListener("focus", () => selectMode(tab.dataset.demoMode, true));
+      }
+
+      if (!Object.hasOwn(HTMLElement.prototype, "focusGroup")) {
+        tablist.addEventListener("keydown", (event) => {
+          const idx = tabs.indexOf(document.activeElement);
+          if (idx === -1) return;
+          const isRtl = getComputedStyle(tablist).direction === "rtl";
+          let next = null;
+          if (event.key === "ArrowRight") next = (idx + (isRtl ? -1 : 1) + tabs.length) % tabs.length;
+          else if (event.key === "ArrowLeft") next = (idx + (isRtl ? 1 : -1) + tabs.length) % tabs.length;
+          else if (event.key === "Home") next = 0;
+          else if (event.key === "End") next = tabs.length - 1;
+          if (next !== null) {
+            event.preventDefault();
+            tabs[next].focus();
+          }
+        });
+      }
+
+      if (!CSS.supports("animation-timeline", "scroll()")) {
+        const first = tabs[0];
+        const last = tabs[tabs.length - 1];
+        if (first && last) {
+          const fadeObserver = new IntersectionObserver((entries) => {
+            for (const { target, intersectionRatio } of entries) {
+              tablist.classList.toggle(target === first ? "more-start" : "more-end", intersectionRatio < 1);
+            }
+          }, { root: tablist, threshold: 1, rootMargin: "1px" });
+          fadeObserver.observe(first);
+          fadeObserver.observe(last);
+        }
+      }
+
+      toggleBtn.addEventListener("click", () => {
+        playing = !playing;
+        syncToggleLabel();
+        if (playing) {
+          if (stepIdx === MODES[modeKey].steps.length - 1) stepIdx = 0;
+          render();
+          startTimer();
+        } else {
+          stopTimer();
+        }
+      });
+
+      stepBtn.addEventListener("click", () => {
+        playing = false;
+        syncToggleLabel();
+        stopTimer();
+        stepIdx = (stepIdx + 1) % MODES[modeKey].steps.length;
+        render();
+      });
+
+      restartBtn.addEventListener("click", () => {
+        stepIdx = 0;
+        render();
+        if (playing) startTimer();
+      });
+
+      dotsEl.addEventListener("click", (event) => {
+        const dot = event.target.closest("[data-step-dot]");
+        if (!dot) return;
+        playing = false;
+        syncToggleLabel();
+        stopTimer();
+        stepIdx = Number(dot.dataset.stepDot);
+        render();
+      });
+
+      jumpBtn.addEventListener("click", () => {
+        const targetId = jumpBtn.dataset.targetTab;
+        const specTab = targetId && document.getElementById(targetId);
+        if (specTab) specTab.click();
+        document.getElementById("workers")?.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth" });
+      });
+
+      if ("contentVisibility" in document.documentElement.style) {
+        root.addEventListener("contentvisibilityautostatechange", (event) => {
+          inView = !event.skipped;
+          if (inView) startTimer();
+          else stopTimer();
+        });
+      }
+
+      const io = new IntersectionObserver(
+        (entries) => {
+          inView = entries[0]?.isIntersecting ?? true;
+          if (inView) startTimer();
+          else stopTimer();
+        },
+        { threshold: 0.15 }
+      );
+      io.observe(root);
+
+      syncToggleLabel();
+      render();
+      startTimer();
+    })();
   </script>
 </body>
 </html>
